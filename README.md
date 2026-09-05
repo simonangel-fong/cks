@@ -1,9 +1,10 @@
 # CKS
 
 - Fundamental
-  - [Certificate](./notes/fundamental/certificate.md)
+  - [Certificate](./fundamental/certificate.md)
   - [mTLS](./fundamental/mtls.md)
   - [Utility: `openssl`](./fundamental/openssl.md)
+  - [Access Control](./fundamental/access_control.md)
 
 - Cluster components
   - etcd security
