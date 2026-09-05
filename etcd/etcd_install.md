@@ -49,15 +49,15 @@ mkdir -pv ~/cert/ca
 cd ~/cert/ca
 
 # create private key
-openssl genrsa -out ~/cert/ca/ca.key 2048
+openssl genrsa -out ca.key 2048
 # create cert
-openssl req -x509 -new -sha256 -key ~/cert/ca/ca.key -days 365 \
-  -subj "/CN=etcd-ca" -out ~/cert/ca/ca.crt \
+openssl req -x509 -new -sha256 -key ca.key -days 365 \
+  -subj "/CN=KUBERNETES-CA" -out ca.crt \
   -addext "basicConstraints=critical,CA:TRUE" \
   -addext "keyUsage=critical,keyCertSign,cRLSign"
 
 # confirm
-ls ~/cert/ca/
+ls
 # ca.crt  ca.key
 ```
 
@@ -72,11 +72,11 @@ cd ~/cert/etcd
 ETCD_IP=172.27.224.217
 
 # create private key
-openssl genrsa -out ~/cert/etcd/etcd.key 2048
+openssl genrsa -out etcd.key 2048
 # create csr
-openssl req -new -key ~/cert/etcd/etcd.key -subj "/CN=etcd" -out ~/cert/etcd/etcd.csr
+openssl req -new -key etcd.key -subj "/CN=etcd" -out etcd.csr
 # cert config
-cat > ~/cert/etcd/etcd.ext <<EOF
+cat > etcd.ext <<EOF
 basicConstraints=critical,CA:FALSE
 keyUsage=critical,digitalSignature,keyEncipherment
 extendedKeyUsage=serverAuth
@@ -84,16 +84,16 @@ subjectAltName=IP:${ETCD_IP},IP:127.0.0.1,DNS:localhost
 EOF
 
 # create cert
-openssl x509 -req -in ~/cert/etcd/etcd.csr -CA ~/cert/ca/ca.crt -CAkey ~/cert/ca/ca.key -CAcreateserial -out ~/cert/etcd/etcd.crt -days 365 -sha256 -extfile ~/cert/etcd/etcd.ext
+openssl x509 -req -in etcd.csr -CA ~/cert/ca/ca.crt -CAkey ~/cert/ca/ca.key -CAcreateserial -out etcd.crt -days 365 -sha256 -extfile etcd.ext
 
 # Certificate request self-signature ok
 # subject=CN = etcd
 
 # verify
-openssl verify -CAfile ~/cert/ca/ca.crt -purpose sslserver -verify_ip "$ETCD_IP" ~/cert/etcd/etcd.crt
-# /home/ubuntuadmin/cert/etcd/etcd.crt: OK
+openssl verify -CAfile ~/cert/ca/ca.crt -purpose sslserver -verify_ip "$ETCD_IP" etcd.crt
+# etcd.crt: OK
 
-ls ~/cert/etcd
+ls etcd*
 # etcd.crt  etcd.csr  etcd.ext  etcd.key
 ```
 
@@ -102,10 +102,12 @@ ls ~/cert/etcd
 Prepare the certificate now and use it with `etcdctl` for testing. `clientAuth` identifies a TLS client.
 
 ```sh
-# create private ket
-openssl genrsa -out ~/cert/etcd/apiserver-etcd-client.key 2048
+cd ~/cert/etcd
+
+# create private key
+openssl genrsa -out apiserver-etcd-client.key 2048
 # create csr
-openssl req -new -key ~/cert/etcd/apiserver-etcd-client.key -subj "/CN=kube-apiserver-etcd-client" -out ~/cert/etcd/apiserver-etcd-client.csr
+openssl req -new -key apiserver-etcd-client.key -subj "/CN=kube-apiserver-etcd-client" -out apiserver-etcd-client.csr
 
 # cert conf
 cat > client.ext <<EOF
@@ -115,22 +117,22 @@ extendedKeyUsage=clientAuth
 EOF
 
 # sign
-openssl x509 -req -in ~/cert/etcd/apiserver-etcd-client.csr -CA ~/cert/ca/ca.crt -CAkey ~/cert/ca/ca.key -CAcreateserial -out ~/cert/etcd/apiserver-etcd-client.crt -days 365 -sha256 -extfile ~/cert/etcd/client.ext
+openssl x509 -req -in apiserver-etcd-client.csr -CA ~/cert/ca/ca.crt -CAkey ~/cert/ca/ca.key -CAcreateserial -out apiserver-etcd-client.crt -days 365 -sha256 -extfile client.ext
 # Certificate request self-signature ok
 # subject=CN = kube-apiserver-etcd-client
 
 # confirm
-ls ~/cert/etcd/
+ls
 # apiserver-etcd-client.crt  apiserver-etcd-client.csr  apiserver-etcd-client.key  client.ext  etcd.crt  etcd.csr  etcd.ext  etcd.key
 
 # verify
-openssl verify -CAfile ~/cert/ca/ca.crt -purpose sslclient ~/cert/etcd/apiserver-etcd-client.crt
-# /home/ubuntuadmin/cert/etcd/apiserver-etcd-client.crt: OK
+openssl verify -CAfile ~/cert/ca/ca.crt -purpose sslclient apiserver-etcd-client.crt
+# apiserver-etcd-client.crt: OK
 ```
 
 ## Install certificates and prepare data directory
 
-Keep `ca.key` and client files in `~/cert/etcd-lab`. etcd only needs the CA certificate and its server certificate/key. `/var/lib/etcd` stores data, not binaries.
+Keep `ca.key` in `~/cert/ca` and client files in `~/cert/etcd`. etcd only needs the CA certificate and its server certificate/key. `/var/lib/etcd` stores data, not binaries.
 
 ```sh
 # create user
@@ -213,28 +215,28 @@ sudo ss -ltnp '( sport = :2379 or sport = :2380 )'
 ETCD_IP=172.27.224.217
 
 etcdctl --endpoints="https://${ETCD_IP}:2379" \
-  --cacert=/home/ubuntuadmin/cert/ca/ca.crt   \
-  --cert=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.crt  \
-  --key=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.key \
+  --cacert="$HOME/cert/ca/ca.crt"   \
+  --cert="$HOME/cert/etcd/apiserver-etcd-client.crt"  \
+  --key="$HOME/cert/etcd/apiserver-etcd-client.key" \
   endpoint health
 # https://172.27.224.217:2379 is healthy: successfully committed proposal: took = 12.06477ms
 
 etcdctl --endpoints="https://${ETCD_IP}:2379" \
-    --cacert=/home/ubuntuadmin/cert/ca/ca.crt  \
-    --cert=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.crt \
-    --key=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.key  \
+    --cacert="$HOME/cert/ca/ca.crt"  \
+    --cert="$HOME/cert/etcd/apiserver-etcd-client.crt" \
+    --key="$HOME/cert/etcd/apiserver-etcd-client.key"  \
     put /lab/test hello
 # OK
 
 etcdctl --endpoints="https://${ETCD_IP}:2379" \
-    --cacert=/home/ubuntuadmin/cert/ca/ca.crt  \
-    --cert=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.crt \
-    --key=/home/ubuntuadmin/cert/etcd/apiserver-etcd-client.key  \
+    --cacert="$HOME/cert/ca/ca.crt"  \
+    --cert="$HOME/cert/etcd/apiserver-etcd-client.crt" \
+    --key="$HOME/cert/etcd/apiserver-etcd-client.key"  \
     get /lab/test
 # /lab/test
 # hello
 
 # No client certificate: must fail (TLS error or timeout).
-curl --max-time 5 --cacert /home/ubuntuadmin/cert/ca/ca.crt "https://${ETCD_IP}:2379/health"
+curl --max-time 5 --cacert "$HOME/cert/ca/ca.crt" "https://${ETCD_IP}:2379/health"
 # curl: (56) OpenSSL SSL_read: OpenSSL/3.0.13: error:0A00045C:SSL routines::tlsv13 alert certificate required, errno 0
 ```
