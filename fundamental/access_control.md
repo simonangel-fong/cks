@@ -9,7 +9,7 @@
       - [Lab: client certificate](#lab-client-certificate)
     - [Static Token file](#static-token-file)
       - [Lab: Static Token file](#lab-static-token-file)
-    - [Authorization](#authorization)
+  - [Authorization](#authorization)
       - [`system:masters` group](#systemmasters-group)
       - [Lab: authorization mode](#lab-authorization-mode)
         - [AlwaysDeny](#alwaysdeny)
@@ -215,7 +215,7 @@ curl -k --header "Authorization: Bearer Dem0Passw0rd#" https://localhost:6443
 
 ---
 
-### Authorization
+## Authorization
 
 - ref: https://kubernetes.io/docs/reference/access-authn-authz/authorization/
 

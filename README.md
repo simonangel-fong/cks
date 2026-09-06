@@ -1,10 +1,11 @@
 # CKS
 
-- Fundamental
+- [Fundamental](./fundamental/fundamental.md)
   - [Certificate](./fundamental/certificate.md)
   - [mTLS](./fundamental/mtls.md)
   - [Utility: `openssl`](./fundamental/openssl.md)
   - [Access Control](./fundamental/access_control.md)
+  - [taint](./fundamental/taint.md)
 
 - Cluster components
   - etcd security
@@ -18,4 +19,10 @@
     - [Encryption at rest](./apiserver/apiserver_encrypt_at_rest.md)
     - [Auditing](./apiserver/apiserver_auditing.md)
 
+  - [`kubelet`](./kubelet/kubelet.md)
+
 - [kubeadm](./kubeadm.md)
+
+
+- Api resources
+- [Ingress](./resource/ingress.md)
