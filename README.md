@@ -11,8 +11,11 @@
     - [install with systemd](./etcd/etcd_install.md)
     - [mTLS](./etcd/etcd_mtls.md)
     - [debug](./etcd/etcd_debug.md)
-    - [\*Encryption at rest](./etcd/etcd_at_rest.md)
 
   - [`kube-apiserver` security](./apiserver/apiserver.md)
     - [install with systemd](./apiserver/apisever_install.md)
     - [debug](./apiserver/apisever_debug.md)
+    - [Encryption at rest](./apiserver/apiserver_encrypt_at_rest.md)
+    - [Auditing](./apiserver/apiserver_auditing.md)
+
+- [kubeadm](./kubeadm.md)

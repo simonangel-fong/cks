@@ -6,9 +6,14 @@
   - [Access Control](#access-control)
   - [Authentication](#authentication)
     - [X509 Client Certificates](#x509-client-certificates)
+      - [Lab: client certificate](#lab-client-certificate)
     - [Static Token file](#static-token-file)
       - [Lab: Static Token file](#lab-static-token-file)
     - [Authorization](#authorization)
+      - [`system:masters` group](#systemmasters-group)
+      - [Lab: authorization mode](#lab-authorization-mode)
+        - [AlwaysDeny](#alwaysdeny)
+        - [RBAC](#rbac)
     - [Admission Controllers](#admission-controllers)
 
 ---
@@ -41,11 +46,56 @@ When a request reaches the API, it goes through several stages:
 
 - A request is **authenticated** if the `client certificate` is signed by one of the `certificate authorities` that is configured in the API server.
 
+- apiserver flag:
+  - `--client-ca-file=/etc/kubernetes/pki/ca.crt`
+  - any request presenting a `client certificate` **signed by one of the authorities** in the `client-ca-file` is **authenticated** with an identity corresponding to the CommonName of the client certificate.
+
 - Disadvantage
   - The `private key` is **stored on an insecure media** (local disk storage).
   - Certificates are generally **long-lived**. Kubernetes does **not support** certificate **revocation** related area.
   - **Groups** are associated with **Organization** in certificate.
     - If you want to change the group, you will shave to **issue a new certificate**.
+
+---
+
+#### Lab: client certificate
+
+```sh
+# confirm current client ca
+sudo cat /etc/systemd/system/kube-apiserver.service | grep "client-ca"
+  # --client-ca-file=/etc/kubernetes/pki/ca.crt \
+
+# ca crt and key
+ls /etc/kubernetes/pki/ca*
+# /etc/kubernetes/pki/ca.crt  /etc/kubernetes/pki/ca.key
+
+# create new cert and sign with ca
+mkdir -pv ~/authen/cert
+cd ~/authen/cert
+
+# private key
+openssl genrsa -out alice.key 2048
+# csr
+openssl req -new -key alice.key -subj "/CN=alice/O=developers" -out alice.csr
+# signed cert
+sudo openssl x509 -req -in alice.csr -CA /etc/kubernetes/pki/ca.crt
+ -CAkey /etc/kubernetes/pki/ca.key  -CAcreateserial -out alice.crt -days 1000
+# Certificate request self-signature ok
+# subject=CN = alice, O = developer
+
+ls
+# alice.crt  alice.csr  alice.key
+
+# test: access by crt and key with the trusted ca
+kubectl get secret -A --server=https://127.0.0.1:6443 --certificate
+-authority /etc/kubernetes/pki/ca.crt --client-certificate alice.crt --client-key alice.key
+# NAMESPACE         NAME                          TYPE     DATA   AGE
+# calico-system     calico-apiserver-certs        Opaque   2      42h
+# calico-system     goldmane-key-pair             Opaque   2      42h
+# calico-system     node-certs                    Opaque   2      42h
+# calico-system     typha-certs                   Opaque   2      42h
+
+```
 
 ---
 
@@ -126,6 +176,7 @@ kubectl get secret my-secret --server=https://localhost:6443 --token Dem0Passw0r
 kubectl delete secret my-secret --server=https://localhost:6443 --token Dem0Passw0rd# --insecure-skip-tls-verify
 # secret "my-secret" deleted from default namespace
 ```
+
 - Downside
 
 ```sh
@@ -149,7 +200,7 @@ sudo systemctl daemon-reload
 # restart
 sudo systemctl restart kube-apiserver
 
-# update only when restart 
+# update only when restart
 curl -k --header "Authorization: Bearer Dem0Passw0rd#" https://localhost:6443
 # {
 #   "kind": "Status",
@@ -162,7 +213,6 @@ curl -k --header "Authorization: Bearer Dem0Passw0rd#" https://localhost:6443
 # }
 ```
 
-
 ---
 
 ### Authorization
@@ -173,16 +223,127 @@ curl -k --header "Authorization: Bearer Dem0Passw0rd#" https://localhost:6443
 
 - Multiple authorization modules are supported.
 
-| Authorization Modes | Description                                                              |
-| ------------------- | ------------------------------------------------------------------------ |
-| AlwaysDeny          | Blocks all requests (used in tests).                                     |
-| AlwaysAllow         | Allows all requests; use if you don’t need authorization.                |
-| RBAC                | Allows you to create and store policies using the Kubernetes API.        |
-| Node                | A special-purpose authorization mode that grants permissions to kubelets |
+| Authorization Modes   | Description                                                              |
+| --------------------- | ------------------------------------------------------------------------ |
+| AlwaysAllow (default) | Allows all requests; use if you don’t need authorization.                |
+| AlwaysDeny            | Blocks all requests (used in tests).                                     |
+| RBAC                  | Allows you to create and store policies using the Kubernetes API.        |
+| Node                  | A special-purpose authorization mode that grants permissions to kubelets |
 
-- flags:
-  - `--authorization-mode`
+- flags `--authorization-mode`
+  - Defaults to `AlwaysAllow`
   - e.g., `--authorization-mode=Node,RBAC `
+
+---
+
+#### `system:masters` group
+
+- **super-user group** in Kubernetes
+  - grants **unrestricted, full cluster-admin access** to the API server
+
+- Even if every cluster role and role is deleted from the cluster, users who are members of this group retain full access to the cluster.
+
+- add a user as master group
+
+```sh
+openssl req -new -key alice.key -subj "/CN=alice/O=admins" -out alice.csr
+```
+
+---
+
+#### Lab: authorization mode
+
+##### AlwaysDeny
+
+```sh
+# before config: disable --authorization-mode
+# can list
+kubectl get secret -A --server=https://127.0.0.1:6443 --certificate-authority /etc/kubernetes/pki/ca.crt --client-certificate alice.crt --client-key alice.key
+# NAMESPACE         NAME                          TYPE     DATA   AGE
+# calico-system     calico-apiserver-certs        Opaque   2      43h
+# calico-system     goldmane-key-pair             Opaque   2      43h
+# ...
+
+sudo vim /etc/systemd/system/kube-apiserver.service
+# change mode
+# --authorization-mode=AlwaysDeny
+
+sudo systemctl daemon-reload
+sudo systemctl restart kube-apiserver && sudo systemctl status kube-apiserver --no-page
+
+# test: Everything is forbidden.
+kubectl get secret -A --server=https://127.0.0.1:6443 --certificate-authority /etc/kubernetes/pki/ca.crt --client-certificate alice.crt --client-key alice.key
+# Error from server (Forbidden): secrets is forbidden: User "alice" cannot list resource "secrets" in API group "" at the cluster scope: Everything is forbidden.
+```
+
+- Create supper user
+
+```sh
+mkdir -pv ~/author/
+# mkdir: created directory '/home/ubuntuadmin/author/'
+cd ~/author/
+
+# get ca
+sudo cat /etc/systemd/system/kube-apiserver.service | grep "client-ca"
+#   --client-ca-file=/etc/kubernetes/pki/ca.crt \
+
+# confirm still deny all
+sudo cat /etc/systemd/system/kube-apiserver.service | grep authorization
+  # --authorization-mode=AlwaysDeny       \
+
+cd ~/authen/cert
+
+# create private key
+openssl genrsa -out calvin.key 2048
+# create csr
+openssl req -new -key calvin.key -subj "/CN=calvin/O=system:masters" -out calvin.csr
+# sign cert
+sudo openssl x509 -req -in calvin.csr -CA /etc/kubernetes/pki/ca.crt -CAkey /etc/kubernetes/pki/ca.key -CAcreateserial -out calvin.crt -days 1000
+# Certificate request self-signature ok
+# subject=CN = calvin, O = system:masters
+
+# test with supper user
+kubectl get secret -A --server=https://127.0.0.1:6443 --client-certificate calvin.crt --certificate-authority /etc/kubernetes/pki/ca.crt --client-key calvin.key
+# NAMESPACE         NAME                          TYPE     DATA   AGE
+# calico-system     calico-apiserver-certs        Opaque   2      43h
+# calico-system     goldmane-key-pair             Opaque   2      43h
+# calico-system     node-certs                    Opaque   2      43h
+# calico-system     typha-certs                   Opaque   2      43h
+# ...
+```
+
+##### RBAC
+
+```sh
+sudo vim /etc/systemd/system/kube-apiserver.service
+# change mode
+# --authorization-mode=RBAC
+
+sudo systemctl daemon-reload
+sudo systemctl restart kube-apiserver
+sudo systemctl status kube-apiserver --no-page
+
+cd ~/authen/cert
+
+# test: RBAC deny
+kubectl get secret -A --server=https://127.0.0.1:6443 --certificate-authority /etc/kubernetes/pki/ca.crt --client-certificate alice.crt --client-key alice.key
+# Error from server (Forbidden): secrets is forbidden: User "alice" cannot list resource "secrets" in API group "" at the cluster scope
+
+# create clusterrole, clusterrolebinding
+# use default admin
+kubectl create clusterrole alice-list-secrets --verb=list --resource=secrets
+# clusterrole.rbac.authorization.k8s.io/alice-list-secrets created
+
+kubectl create clusterrolebinding alice-list-secrets --clusterrole=alice-list-secrets --user=alice
+# clusterrolebinding.rbac.authorization.k8s.io/alice-list-secrets created
+
+kubectl get secret -A --server=https://127.0.0.1:6443 --certificate-authority /etc/kubernetes/pki/ca.crt --client-certificate alice.crt --client-key alice.key
+# NAMESPACE         NAME                          TYPE     DATA   AGE
+# calico-system     calico-apiserver-certs        Opaque   2      43h
+# calico-system     goldmane-key-pair             Opaque   2      43h
+# calico-system     node-certs                    Opaque   2      43h
+# ...
+```
 
 ---
 

@@ -141,7 +141,7 @@ sudo useradd --system --no-create-home --shell /usr/sbin/nologin etcd
 sudo install -d -o etcd -g etcd -m 0700 /var/lib/etcd
 sudo install -d -o root -g etcd -m 0750 /etc/kubernetes/pki
 # copy
-sudo install -v -o root -g etcd -m 0644 ~/cert/ca/ca.crt ~/cert/etcd/etcd.crt /etc/kubernetes/pki/
+sudo install -v -o root -g etcd -m 0644 ~/cert/ca/ca.crt ~/cert/ca/ca.key ~/cert/etcd/etcd.crt /etc/kubernetes/pki/
 # '/home/ubuntuadmin/cert/ca/ca.crt' -> '/etc/kubernetes/pki/ca.crt'
 # '/home/ubuntuadmin/cert/etcd/etcd.crt' -> '/etc/kubernetes/pki/etcd.crt'
 sudo install -v -o root -g etcd -m 0640 ~/cert/etcd/etcd.key /etc/kubernetes/pki/

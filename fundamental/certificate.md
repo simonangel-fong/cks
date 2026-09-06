@@ -25,6 +25,15 @@
 
 ---
 
+- important fields:
+  - `Common Name (CN)`: username
+  - `Organization (O)`: group name
+- e.g.,
+  - `openssl req -new -key alice.key -subj "/CN=alice/O=admins" -out alice.csr`
+  - The above commands create CSR for the **username alice** belonging to **admins group**
+
+---
+
 ### Certificate Creation Workflow
 
 The certificate creation workflow consists of two main stages:
