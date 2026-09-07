@@ -7,6 +7,12 @@
   - [Access Control](./fundamental/access_control.md)
   - [taint](./fundamental/taint.md)
 
+- Cluster
+  - [Authentication](./cluster/authentication.md)
+  - [Authorization](./cluster/authorization.md)
+    - [RBAC & SA](./cluster/authorization_rbac.md)
+  - [Install and upgrade with `kubeadm`](./cluster/kubeadm.md)
+
 - Cluster components
   - etcd security
     - [install with systemd](./etcd/etcd_install.md)
@@ -21,8 +27,6 @@
 
   - [`kubelet`](./kubelet/kubelet.md)
 
-- [kubeadm](./kubeadm.md)
-
-
 - Api resources
-- [Ingress](./resource/ingress.md)
+  - [Ingress](./resource/ingress.md)
+  - [Network Policies](./resource/np.md)

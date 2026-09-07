@@ -1,18 +1,111 @@
-# CKS: kubeadm
+# CKS: Install & update cluster with kubeadm
 
 [Back](../README.md)
 
-- [CKS: kubeadm](#cks-kubeadm)
-  - [setup controlplane with kubeadm](#setup-controlplane-with-kubeadm)
-  - [setup worker node with kubeadm](#setup-worker-node-with-kubeadm)
+- [CKS: Install \& update cluster with kubeadm](#cks-install--update-cluster-with-kubeadm)
+  - [kubeadm](#kubeadm)
+  - [File structure](#file-structure)
+    - [Control plane](#control-plane)
+    - [Worker node](#worker-node)
+  - [Lab: setup controlplane with kubeadm](#lab-setup-controlplane-with-kubeadm)
+  - [lab: setup worker node with kubeadm](#lab-setup-worker-node-with-kubeadm)
+  - [troubleshooting](#troubleshooting)
 
 ---
 
-## setup controlplane with kubeadm
+## kubeadm
 
 - ref:
   - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/install-kubeadm/
   - https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/
+
+---
+
+## File structure
+
+### Control plane
+
+```text
+/etc/kubernetes/                    # Typical control plane + local etcd
+|-- admin.conf                     # Admin kubeconfig
+|-- super-admin.conf               # Break-glass kubeconfig (init node)
+|-- controller-manager.conf        # Controller manager kubeconfig
+|-- scheduler.conf                 # Scheduler kubeconfig
+|-- kubelet.conf                   # Kubelet kubeconfig
+|-- bootstrap-kubelet.conf         # Temporary; removed after bootstrap
+|-- manifests/                     # Static Pods (watched by kubelet)
+|   |-- kube-apiserver.yaml        # API server
+|   |-- kube-controller-manager.yaml
+|   |-- kube-scheduler.yaml
+|   `-- etcd.yaml                  # Local etcd
+|-- pki/                           # .crt = certificate; .key = private key
+|   |-- ca.crt                     # Kubernetes CA
+|   |-- ca.key
+|   |-- apiserver.crt              # API server TLS
+|   |-- apiserver.key
+|   |-- apiserver-kubelet-client.crt # API server -> kubelet
+|   |-- apiserver-kubelet-client.key
+|   |-- apiserver-etcd-client.crt   # API server -> etcd
+|   |-- apiserver-etcd-client.key
+|   |-- front-proxy-ca.crt         # API aggregation CA
+|   |-- front-proxy-ca.key
+|   |-- front-proxy-client.crt     # API aggregation client
+|   |-- front-proxy-client.key
+|   |-- sa.key                     # ServiceAccount token signing
+|   |-- sa.pub                     # ServiceAccount token verification
+|   `-- etcd/
+|       |-- ca.crt                 # etcd CA
+|       |-- ca.key
+|       |-- server.crt             # etcd server TLS
+|       |-- server.key
+|       |-- peer.crt               # etcd <-> etcd mTLS
+|       |-- peer.key
+|       |-- healthcheck-client.crt # etcd health-check client
+|       `-- healthcheck-client.key
+`-- tmp/                           # Temporary / upgrade files (if present)
+```
+
+key files:
+
+- `/etc/kubernetes/admin.conf`: admin kubeconfig, a copy in ~/.kube/config
+- `/etc/kubernetes/kubelet.conf`: contain cert with
+  - CN: `system:node:<hostname-lowercased>`
+  - O: `system:node`
+- `/etc/kubernetes/controller-manager.conf`: contains a cert with
+  - CN: `system:kube-controller-manager`
+- `/etc/kubernetes/scheduler.conf`: contains a cert with
+  - CN: `system:kube-scheduler`
+
+**IMPORTANT**:
+
+- `kubelet` is manage by systemd
+  - path: `/var/lib/kubelet/`
+  - key file: `/var/lib/kubelet/config.yaml`
+- component static pods all get labels:
+  - `tier:control-plane`
+  - `component:<component_name>`
+    - e.g., `component:etcd`
+
+- control plane node automaticall has
+  - labels: `node-role.kubernetes.io/control-plane=`
+  - tains: `node-role.kubernetes.io/control-plane:NoSchedule`
+
+---
+
+### Worker node
+
+```text
+/etc/kubernetes/                    # Typical kubeadm worker
+|-- kubelet.conf                   # Kubelet -> API server kubeconfig
+|-- bootstrap-kubelet.conf         # Temporary; removed after bootstrap
+|-- manifests/                     # Empty by default; custom static Pods
+`-- pki/
+    `-- ca.crt                     # Kubernetes CA certificate
+```
+
+---
+
+## Lab: setup controlplane with kubeadm
 
 ```sh
 # ##############################
@@ -117,7 +210,7 @@ kubectl get pods
 
 ---
 
-## setup worker node with kubeadm
+## lab: setup worker node with kubeadm
 
 ```sh
 # ##############################
@@ -195,3 +288,19 @@ kubectl get node
 ```
 
 ---
+
+## troubleshooting
+
+kubelet logs
+
+```sh
+# kubelet log
+journalctl -u kubelet -f
+
+# pod log
+sudo ls /var/log/pods
+# container log: symlink to the latest log file for Pods
+sudo ls /var/log/containers
+
+sudo grep -i "error" log_file
+```
