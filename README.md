@@ -30,4 +30,8 @@
 - Api resources
   - [Ingress](./resource/ingress.md)
   - [Network Policies](./resource/np.md)
-  - [projected volume](./resource/projected_volume.md)
+- Workload
+  - [Projected Volume](./workload/projected_volume.md)
+  - [Security Context](./workload/security_context.md)
+    - [Privileged Pods](./workload/privileged_pod.md)
+    - [Capabilities](./workload/capabilities.md)
