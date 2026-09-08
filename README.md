@@ -30,3 +30,4 @@
 - Api resources
   - [Ingress](./resource/ingress.md)
   - [Network Policies](./resource/np.md)
+  - [projected volume](./resource/projected_volume.md)

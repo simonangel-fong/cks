@@ -3,6 +3,9 @@
 [Back](../README.md)
 
 - [CKS: Install \& update cluster with kubeadm](#cks-install--update-cluster-with-kubeadm)
+  - [Version Skew Policy](#version-skew-policy)
+    - [Kubernetes Versioning](#kubernetes-versioning)
+    - [Components](#components)
   - [kubeadm](#kubeadm)
   - [File structure](#file-structure)
     - [Control plane](#control-plane)
@@ -10,6 +13,70 @@
   - [Lab: setup controlplane with kubeadm](#lab-setup-controlplane-with-kubeadm)
   - [lab: setup worker node with kubeadm](#lab-setup-worker-node-with-kubeadm)
   - [troubleshooting](#troubleshooting)
+  - [Upgrading kubeadm Clusters](#upgrading-kubeadm-clusters)
+    - [Control Plane](#control-plane-1)
+
+---
+
+## Version Skew Policy
+
+- `version skew`
+  - the **difference in version** numbers **between different components** running inside the **same cluster**.
+  - Because Kubernetes is a **distributed system** with many moving parts (like the API server, nodes, and CLI tools), it is designed to let these parts r**un on different versions** temporarily—usually during rolling upgrades.
+
+- `version skew policy`
+  - the **maximum allowable difference** in **minor versions (1.X.z)** between various cluster components.
+
+---
+
+### Kubernetes Versioning
+
+- `Kubernetes versions` are expressed as `x.y.z`
+  - `x`: the major version
+  - `y`: the minor version
+  - `z`: the patch version
+
+- Format: `<MAJOR>.<MINOR>.<PATCH>`
+  - e.g., v1.32.2
+
+| Major Version | Minor Version | Patch Version |
+| ------------- | ------------- | ------------- |
+| 1             | 32            | 2             |
+
+---
+
+### Components
+
+- `kube-apiserver`
+  - In highly-available (HA) clusters, the newest and oldest kube-apiserver instances must be **within one minor version**.
+    - e.g., If newest kube-apiserver is at 1.32 other kube-apiserver instances are supported at 1.32 and 1.31
+
+- `kubelet`
+  - `kubelet` must **not be newer** than `kube-apiserver`.
+  - `kubelet` may be up to **three minor versions older** than `kube-apiserver`
+  - e.g.,
+    - `kube-apiserver` is at 1.32
+    - `kubelet` is supported at 1.32, 1.31, 1.30, and 1.29
+
+- `kube-proxy`
+  - `kube-proxy` must **not be newer** than `kube-apiserver`.
+  - `kube-proxy` may be up to **three minor versions older** than `kube-apiserver`
+  - e.g.,
+    - `kube-apiserver` is at 1.32
+    - `kube-proxy` is supported at 1.32, 1.31, 1.30, and 1.29
+
+- `Controller Manager`, `Scheduler`, `Cloud Controller Manager`
+  - Must **not be newer** than the `kube-apiserver` instances they communicate with.
+  - They are **expected to match** the `kube-apiserver` minor version, but may be up to **one minor version older** (to allow live upgrades).
+  - e.g.,
+    - `kube-apiserver` is at 1.32
+    - `kube-controller-manager`, `kube-scheduler`, and `cloud-controller-manager` are supported at 1.32 and 1.31
+
+- `kubectl`
+  - `kubectl` is supported within **one minor version (older or newer)** of `kube-apiserver`.
+  - e.g.,
+    - kube-apiserver is at 1.32
+    - kubectl is supported at 1.33, 1.32, and 1.31
 
 ---
 
@@ -304,3 +371,25 @@ sudo ls /var/log/containers
 
 sudo grep -i "error" log_file
 ```
+
+---
+
+## Upgrading kubeadm Clusters
+
+- upgrade minor versions sequentially (1.31 -> 1.32 -> 1.33 etc.)
+- upgrade both the Control Plane Node and Worker Nodes.
+
+```sh
+# queries and displays available information about installed and installable packages.
+apt-cache madison kubeadm
+```
+
+---
+
+### Control Plane
+
+- `kubeadm upgrade plan` check which versions are available to upgrade to and validate whether your current cluster is upgradeable
+- Run the `kubeadm upgrade apply` to upgrade the version.
+
+- `kubelet` component: not upgraded during the `kubeadm upgrade apply` operation.
+  - have to manually upgrade `kubelet`.
