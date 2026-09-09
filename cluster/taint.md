@@ -1,8 +1,8 @@
-# CKS: Fundamental - Taint
+# CKS: Cluster - node taint
 
 [back](../README.md)
 
-- [CKS: Fundamental - Taint](#cks-fundamental---taint)
+- [CKS: Cluster - node taint](#cks-cluster---node-taint)
   - [Taint](#taint)
   - [toleration](#toleration)
 
