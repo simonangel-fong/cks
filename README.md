@@ -11,6 +11,7 @@
     - [Authorization](./cluster/authorization.md)
       - [RBAC & SA](./cluster/authorization_rbac.md)
     - [Admission Controller](./cluster/admission_controller.md)
+      - [ImagePolicyWebhook](./cluster/admission_controller_imagepolicywebhook.md)
   - [Install and upgrade with `kubeadm`](./cluster/kubeadm.md)
 
 - Cluster components
@@ -32,6 +33,8 @@
 - Api resources
   - [Ingress](./resource/ingress.md)
   - [Network Policies](./resource/np.md)
+  - [Secret](./resource/secret.md)
+
 - Workload
   - [Projected Volume](./workload/projected_volume.md)
   - [Security Context](./workload/security_context.md)
@@ -39,3 +42,10 @@
     - [Capabilities](./workload/capabilities.md)
   - [ImagePullPolicy](./workload/imagepullpolicy.md)
   - [Pod Security Standard](./workload/pod_security_standard.md)
+
+- Cilium
+  - [Install](./cilium/install.md)
+  - [Cilium Network Policies](./cilium/netpol.md)
+    - [Layer 3](./cilium/netpol_layer3.md)
+    - [Layer 4](./cilium/netpol_layer4.md)
+    - [DNS rule](./cilium/netpol_dns.md)

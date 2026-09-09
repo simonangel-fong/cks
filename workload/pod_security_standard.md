@@ -4,13 +4,15 @@
 
 - [CKS: ns - Pod Security Standard](#cks-ns---pod-security-standard)
   - [Pod Security Standard](#pod-security-standard)
+    - [Exemptions](#exemptions)
+    - [Mode](#mode)
+    - [Exemptions](#exemptions-1)
     - [Declarative](#declarative)
-  - [`Pod Security Admission (PSA)`](#pod-security-admission-psa)
   - [Lab: PSS](#lab-pss)
     - [PSS - privileged](#pss---privileged)
     - [PSS - baseline](#pss---baseline)
     - [PSS - restricted](#pss---restricted)
-    - [### PSS - restricted pod](#-pss---restricted-pod)
+    - [PSS - restricted pod](#pss---restricted-pod)
 
 ---
 
@@ -32,13 +34,105 @@
   - `Restricted`:
     - Follows **strict pod hardening** best practices, such as requiring non-root execution and limiting capabilities, to reduce the attack surface.
 
-- Labels modes:
-  - `enforce`
-    - blocks non-compliant pods
-  - `audit`:
-    - logs violations
-  - `warn`:
-    - alerts users
+- `Pod Security Admission (PSA)`:
+  - A built-in **admission controller** that **evaluates and enforces** `PSS` standards **at the namespace level**.
+  - When a pod is created, PSA checks if it complies with the security policies set at the namespace level.
+
+---
+
+- It is helpful to apply the `--dry-run` flag when initially evaluating **security profile changes** for namespaces.
+  - The `Pod Security Standard` checks will still be run in **dry run mode**, giving you information about how the new policy would treat existing pods, without actually updating a policy
+
+```sh
+# dry run
+kubectl label --dry-run=server ns default pod-security.kubernetes.io/enforce=restried
+# will return Warning to indicate the violations before apply the policy
+```
+
+---
+
+### Exemptions
+
+---
+
+### Mode
+
+```yaml
+# label formats
+pod-security.kubernetes.io/<MODE>: <profile>
+```
+
+- `enforce`
+  - **Rejects** Pods with policy violations
+  - The `enforce` mode does **not apply to** workload objects like `Deployments` etc.
+    - enforcement happens only **when the actual `Pods` are created**.
+    - e.g., deployment can be created, but the pod will be blocked.
+  - Existing running pods are not affected.
+    - When an enforce policy label is **added** or **changed**, the admission plugin will **test each pod** in the namespace against the new policy.
+    - Violations are returned to the user as **warning**
+- `audit`:
+  - **Allows** Pods with policy violations but includes an audit **annotation** in the audit **log event** record.
+- `warn`:
+  - **Allows** Pods with policy violations but **warns** users.
+
+- Version:
+  - If you **do not define** the version in the `Pod Security Standard` label, Kubernetes will **use the default version** of the `Pod Security Admission (PSA)` policy that is supported by the cluster.
+  - The **default version** is typically the **latest stable version** supported by the Kubernetes API in that **release**.
+  - If later, when Kubernetes is **upgraded**, the `Pod Security Standards` may **change** in newer versions.
+    - This could lead to unexpected policy enforcement changes that might break workloads.
+
+- Multiple Modes can be used in the same ns with versions:
+
+```yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: my-baseline-namespace
+  labels:
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/enforce-version: v1.37
+    pod-security.kubernetes.io/audit: baseline
+    pod-security.kubernetes.io/audit-version: v1.36
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: v1.35
+```
+
+---
+
+### Exemptions
+
+- ref: https://kubernetes.io/docs/concepts/security/pod-security-admission/#exemptions
+
+- `exemptions`
+  - used to allow the creation of pods that would have otherwise been prohibited due to the policy associated with a given namespace.
+
+- `Exemptions` can be statically configured in the `Admission Controller` **configuration** via the `--admission-control-config-file` to `kube-apiserver`.
+
+- sample
+
+```yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "privileged"
+        enforce-version: "latest"
+        audit: "privileged"
+        audit-version: "latest"
+        warn: "privileged"
+        warn-version: "latest"
+      exemptions:
+        # Array of authenticated usernames to exempt.
+        usernames: []
+        # Array of runtime class names to exempt.
+        runtimeClasses: []
+        # Array of namespaces to exempt.
+        namespaces: []
+```
 
 ---
 
@@ -78,12 +172,6 @@ metadata:
 ```
 
 ---
-
-## `Pod Security Admission (PSA)`
-
-- `Pod Security Admission (PSA)`:
-  - A built-in **admission controller** that **evaluates and enforces** `PSS` standards **at the namespace level**.
-  - When a pod is created, PSA checks if it complies with the security policies set at the namespace level.
 
 ---
 
@@ -179,7 +267,7 @@ kubectl get po -n restricted-ns
 
 ---
 
-### ### PSS - restricted pod
+### PSS - restricted pod
 
 ```sh
 # pod without user id
