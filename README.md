@@ -4,6 +4,7 @@
   - [Certificate](./fundamental/certificate.md)
   - [mTLS](./fundamental/mtls.md)
   - [Utility: `openssl`](./fundamental/openssl.md)
+  - [Monolithic vs Microservices](./fundamental/monolithic_microservices.md)
 
 - Cluster
   - Access Control
@@ -40,6 +41,7 @@
   - [Security Context](./workload/security_context.md)
     - [Privileged Pods](./workload/privileged_pod.md)
     - [Capabilities](./workload/capabilities.md)
+    - [readOnlyRootFilesystem](./workload/security_context_fs.md)
   - [ImagePullPolicy](./workload/imagepullpolicy.md)
   - [Pod Security Standard](./workload/pod_security_standard.md)
 
@@ -49,3 +51,11 @@
     - [Layer 3](./cilium/netpol_layer3.md)
     - [Layer 4](./cilium/netpol_layer4.md)
     - [DNS rule](./cilium/netpol_dns.md)
+    - [Deny Policies](./cilium/netpol_deny.md)
+  - [Transparent Encryption](./cilium/encrypt.md)
+
+- Istio
+  - [service mesh](./istio/service_mesh.md)
+  - [install](./istio/install.md)
+  - [Sidecar Injection](./istio/sidecar.md)
+  - [mTLS](./istio/mtls.md)
