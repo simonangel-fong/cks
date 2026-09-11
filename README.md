@@ -64,3 +64,16 @@
 - Runtime
   - [OCI](./runtime/oci.md)
   - [Sandboxing](./runtime/sandbox.md)
+
+- [Security scan](./scan/scan.md)
+  - [Trivy](./scan/trivy.md)
+  - [kube-bench](./scan/kube_bench.md)
+  - [Static analysis](./scan/static_analysis.md)
+  - [Securing Docker Daemon](./scan/docker_daemon.md)
+  - [Dockerfile - best practices](./scan/dockerfile_practices.md)
+  - [Bill of Materials](./scan/bom.md)
+
+---
+
+https://github.com/techiescamp/cks-certification-guide
+https://github.com/SebastianUA/Certified-Kubernetes-Security-Specialist
