@@ -1,8 +1,8 @@
-# CKS: Pod - Capabilities
+# CKS: Pod security context - Capabilities
 
 [back](../README.md)
 
-- [CKS: Pod - Capabilities](#cks-pod---capabilities)
+- [CKS: Pod security context - Capabilities](#cks-pod-security-context---capabilities)
   - [Linux Capabilities](#linux-capabilities)
     - [Common Capabilities](#common-capabilities)
     - [Common commands](#common-commands)

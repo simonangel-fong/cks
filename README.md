@@ -38,10 +38,11 @@
 
 - Workload
   - [Projected Volume](./workload/projected_volume.md)
+  - [Privileged Pods](./workload/privileged_pod.md)
   - [Security Context](./workload/security_context.md)
-    - [Privileged Pods](./workload/privileged_pod.md)
-    - [Capabilities](./workload/capabilities.md)
+    - [Capabilities](./workload/security_context_capabilities.md)
     - [readOnlyRootFilesystem](./workload/security_context_fs.md)
+    - [AppArmor](./workload/security_context_apparmor.md)
   - [ImagePullPolicy](./workload/imagepullpolicy.md)
   - [Pod Security Standard](./workload/pod_security_standard.md)
 
