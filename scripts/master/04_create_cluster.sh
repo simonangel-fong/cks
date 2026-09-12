@@ -41,9 +41,15 @@ sudo kubeadm init --apiserver-advertise-address="$IP_CONTROLPLANE" --pod-network
 # ##############################
 # Configure kubectl for current user
 # ##############################
+# Sleep for 120 seconds
+sleep 120
 mkdir -p "$HOME/.kube"
 sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
 sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
+
+# add alias
+echo 'alias k="kubectl"' >> ~/.bashrc
+bash
 
 # Verify node registration (NotReady until CNI installation).
 kubectl get nodes
