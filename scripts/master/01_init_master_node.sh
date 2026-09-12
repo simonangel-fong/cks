@@ -7,22 +7,22 @@ HOSTNAME="controlplane"
 IP_HOST="192.168.10.150"
 IP_GTW="192.168.10.2"
 
-echo "##############################"
-echo "set hostname"
-echo "##############################"
+# ##############################
+# set hostname
+# ##############################
 hostnamectl set-hostname $HOSTNAME
 hostnamectl hostname
 
-echo "########## add hosts ##########"
+# ########## add hosts ##########
 tee -a /etc/hosts <<EOF
 $IP_HOST   controlplane
 127.0.0.1        localhost
 EOF
 
 
-echo "##############################"
-echo "Netplan Static IP Configuration"
-echo "##############################"
+# ##############################
+# Netplan Static IP Configuration
+# ##############################
 tee /etc/netplan/01-netcfg.yaml > /dev/null <<EOF
 network:
   version: 2
@@ -42,26 +42,26 @@ EOF
 chmod -v 600 /etc/netplan/*
 netplan apply
 
-echo "########## confirm ##########"
+# ########## confirm ##########
 ip a
 ping -c 3 google.com
 
-echo "##############################"
-echo "Update Packages + Install Basic Tools"
-echo "##############################"
+# ##############################
+# Update Packages + Install Basic Tools
+# ##############################
 apt update && apt upgrade -y
 apt install -y vim git curl ca-certificates net-tools traceroute tcpdump htop
 
-echo "##############################"
-echo "Disable Swap"
-echo "##############################"
+# ##############################
+# Disable Swap
+# ##############################
 swapoff -av
 sed -i '/swap/ s/^/#/' /etc/fstab
 
-echo "########## confirm ##########"
+# ########## confirm ##########
 free -h
 
-# echo "##############################"
-# echo "Reboot"
-# echo "##############################"
+# # ##############################
+# # Reboot
+# # ##############################
 # reboot

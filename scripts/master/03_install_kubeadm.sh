@@ -1,9 +1,9 @@
 #!/bin/bash
 # A shell script to install kubeadm.
 # Permission as sudo
-# sudo 03_install_kubeadm.sh
+# sudo bash 03_install_kubeadm.sh
 
-K8S_VERSION="v1.32"
+K8S_VERSION="v1.33"
 
 # ##############################
 # Install support packages

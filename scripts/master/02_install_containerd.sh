@@ -1,7 +1,7 @@
 #!/bin/bash
 # A shell script to initialize a VM for k8s controlplane.
 # Permission as sudo
-# sudo 02_install_containerd.sh
+# sudo bash 02_install_containerd.sh
 
 # ##############################
 # Install containerd

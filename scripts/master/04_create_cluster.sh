@@ -1,7 +1,7 @@
 #!/bin/bash
 # A shell script to create cluster.
 # Permission as sudo
-# sudo 04_create_cluster.sh
+# sudo bash 04_create_cluster.sh
 
 IP_CONTROLPLANE="192.168.10.150"
 IP_POD_CIDR="10.244.0.0/16"
