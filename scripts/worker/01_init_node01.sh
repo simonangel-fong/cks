@@ -1,36 +1,38 @@
-# CKS setup master: init workder node
+#!/bin/bash
+# A shell script to initialize a VM for k8s worker node.
+# Permission as sudo
+# sudo bash 01_init_node01.sh
 
-```sh
-
-HOSTNAME="worker01"
+HOSTNAME="node01"
 IP_HOST="192.168.10.151"
 IP_GTW="192.168.10.2"
+INTERFACE="ens33"
 
 # ##############################
-# set hostname
+# Set hostname
 # ##############################
-echo "########## set hostname ##########"
-hostnamectl set-hostname $HOSTNAME
+hostnamectl set-hostname "$HOSTNAME"
 hostnamectl hostname
 
-# add hosts
-echo "########## add hosts ##########"
+# ########## Update hosts ##########
 tee -a /etc/hosts <<EOF
-$IP_HOST   controlplane
-127.0.0.1        localhost
+$IP_HOST   $HOSTNAME
 EOF
 
 
 # ##############################
-# Netplan Static IP Configuration
+# Configure a static IP with Netplan
 # ##############################
-echo "########## netplan ##########"
+# Identify the network interface.
+ip -br link
+
+# Configure the static address, default route, and DNS servers.
 tee /etc/netplan/01-netcfg.yaml > /dev/null <<EOF
 network:
   version: 2
   renderer: networkd
   ethernets:
-    ens33:
+    $INTERFACE:
       dhcp4: false
       addresses:
         - $IP_HOST/24
@@ -41,34 +43,31 @@ network:
         addresses: [$IP_GTW, 8.8.8.8, 1.1.1.1]
 EOF
 
-chmod -v 600 /etc/netplan/*
+chmod -v 600 /etc/netplan/01-netcfg.yaml
+netplan generate
 netplan apply
 
-# ########## confirm ##########
-ip a
+# ########## Verify networking ##########
+ip -br address
+ip route
 ping -c 3 google.com
 
 # ##############################
-# Update Packages + Install Basic Tools
+# Update packages and install basic tools
 # ##############################
-echo "########## Update packages ##########"
 apt update && apt upgrade -y
 apt install -y vim git curl ca-certificates net-tools traceroute tcpdump htop
 
 # ##############################
-# Disable Swap
+# Disable swap
 # ##############################
-echo "########## disable swap ##########"
 swapoff -av
 sed -i '/swap/ s/^/#/' /etc/fstab
 
-# confirm
+# ########## Verify swap is disabled ##########
 free -h
 
 # ##############################
 # Reboot
 # ##############################
-echo "########## reboot ##########"
 reboot
-
-```

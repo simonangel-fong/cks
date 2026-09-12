@@ -17,11 +17,11 @@ curl -fsSL https://pkgs.k8s.io/core:/stable:/$K8S_VERSION/deb/Release.key | sudo
 echo "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.gpg] https://pkgs.k8s.io/core:/stable:/$K8S_VERSION/deb/ /" | sudo tee /etc/apt/sources.list.d/kubernetes.list
 
 # ##############################
-# Install kubelet kubeadm kubectl cri-tools
+# Install kubelet kubeadm kubectl
 # ##############################
 sudo apt-get update
-sudo apt-get install -y kubelet kubeadm kubectl cri-tools
-sudo apt-mark hold kubelet kubeadm kubectl cri-tools
+sudo apt-get install -y kubelet kubeadm kubectl
+sudo apt-mark hold kubelet kubeadm kubectl
 
 # Enable the kubelet service
 sudo systemctl enable --now kubelet
@@ -32,8 +32,11 @@ kubectl version --client
 # Kustomize Version: v5.7.1
 
 # ##############################
-# Configure crictl
+# Install and configure crictl
 # ##############################
+sudo apt-get install -y cri-tools
+sudo apt-mark hold cri-tools
+
 cat <<EOF | sudo tee /etc/crictl.yaml
 runtime-endpoint: unix:///run/containerd/containerd.sock
 image-endpoint: unix:///run/containerd/containerd.sock
@@ -44,4 +47,5 @@ EOF
 
 # Verify runtime connectivity
 sudo crictl ps
+# CONTAINER           IMAGE               CREATED             STATE               NAME                      ATTEMPT             POD ID              POD                                    NAMESPACE
 ```

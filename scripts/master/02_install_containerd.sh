@@ -1,7 +1,13 @@
 #!/bin/bash
-# A shell script to initialize a VM for k8s controlplane.
+# Install and configure containerd for the control plane node.
 # Permission as sudo
 # sudo bash 02_install_containerd.sh
+
+# Enable IPv4 forwarding.
+sudo tee /etc/sysctl.d/k8s.conf > /dev/null <<EOF
+net.ipv4.ip_forward = 1
+EOF
+sudo sysctl --system
 
 # ##############################
 # Install containerd
@@ -16,10 +22,10 @@ sudo apt-get install -y containerd
 sudo mkdir -pv /etc/containerd
 sudo containerd config default | sudo tee /etc/containerd/config.toml
 
-# Set systemd cgroup driver: Sets SystemdCgroup = true
+# Use the systemd cgroup driver.
 sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
 
-# apply the change
+# Apply the configuration.
 sudo systemctl restart containerd
-sudo systemctl enable --now containerd
+sudo systemctl enable containerd
 sudo systemctl status containerd --no-page
