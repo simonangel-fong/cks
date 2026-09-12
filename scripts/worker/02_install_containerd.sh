@@ -1,27 +1,31 @@
 #!/bin/bash
-# A shell script to install containerd.
+# Install and configure containerd for the control plane node.
 # Permission as sudo
-# sudo 02_install_containerd.sh
+# sudo bash 02_install_containerd.sh
+
+# Enable IPv4 forwarding.
+sudo tee /etc/sysctl.d/k8s.conf > /dev/null <<EOF
+net.ipv4.ip_forward = 1
+EOF
+sudo sysctl --system
 
 # ##############################
 # Install containerd
 # ##############################
-echo "########## Install containerd ###########"
-apt-get update
-apt-get install -y containerd
+sudo apt-get update
+sudo apt-get install -y containerd
 
 # ##############################
 # Configure containerd
 # ##############################
-echo "########## Configure containerd ##########"
 # Generate default config
-mkdir -pv /etc/containerd
-containerd config default | tee /etc/containerd/config.toml
+sudo mkdir -pv /etc/containerd
+sudo containerd config default | sudo tee /etc/containerd/config.toml
 
-# Set systemd cgroup driver: Sets SystemdCgroup = true
-sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
+# Use the systemd cgroup driver.
+sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/config.toml
 
-# apply the change
-systemctl restart containerd
-systemctl enable --now containerd
-systemctl status containerd --no-page
+# Apply the configuration.
+sudo systemctl restart containerd
+sudo systemctl enable containerd
+sudo systemctl status containerd --no-page
