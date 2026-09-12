@@ -36,8 +36,6 @@ systemctl enable --now kubelet
 
 # confirm client version
 kubectl version --client
-# Client Version: v1.31.14
-# Kustomize Version: v5.4.2
 
 # ##############################
 # Configure crictl

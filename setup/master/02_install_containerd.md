@@ -1,8 +1,6 @@
-#!/bin/bash
-# A shell script to initialize a VM for k8s controlplane.
-# Permission as sudo
-# sudo bash 02_install_containerd.sh
+# CKS setup: master install containerd
 
+```sh
 # ##############################
 # Install containerd
 # ##############################
@@ -23,3 +21,4 @@ sudo sed -i 's/SystemdCgroup = false/SystemdCgroup = true/' /etc/containerd/conf
 sudo systemctl restart containerd
 sudo systemctl enable --now containerd
 sudo systemctl status containerd --no-page
+```

@@ -206,8 +206,6 @@ EOF
 
 # confirm
 sudo crictl ps
-# CONTAINER           IMAGE               CREATED             STATE               NAME                ATTEMPT             POD ID              POD                 NAMESPACE
-
 ```
 
 ---
