@@ -1,5 +1,7 @@
 # CKS
 
+- [Environment setup](./setup/setup.md)
+
 - [Fundamental](./fundamental/fundamental.md)
   - [Certificate](./fundamental/certificate.md)
   - [mTLS](./fundamental/mtls.md)
@@ -72,6 +74,9 @@
   - [Securing Docker Daemon](./scan/docker_daemon.md)
   - [Dockerfile - best practices](./scan/dockerfile_practices.md)
   - [Bill of Materials](./scan/bom.md)
+
+- monitoring
+  - [Falco](./monitor/falco.md)
 
 ---
 
