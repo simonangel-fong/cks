@@ -47,10 +47,6 @@ mkdir -p "$HOME/.kube"
 sudo cp -i /etc/kubernetes/admin.conf "$HOME/.kube/config"
 sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 
-# add alias
-echo 'alias k="kubectl"' >> ~/.bashrc
-bash
-
 # Verify node registration (NotReady until CNI installation).
 kubectl get nodes
 
