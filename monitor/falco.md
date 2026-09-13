@@ -5,18 +5,14 @@
 - [CKS: Monitoring - Falco](#cks-monitoring---falco)
   - [Falco](#falco)
     - [How Falco Works](#how-falco-works)
-  - [Lab: falco on Ubuntu](#lab-falco-on-ubuntu)
-    - [Install](#install)
-    - [Monitor host event](#monitor-host-event)
-  - [Lab: falco on k8s](#lab-falco-on-k8s)
-    - [Deploy Falco](#deploy-falco)
-    - [Monitor](#monitor)
-  - [Custom Falco Rules](#custom-falco-rules)
-    - [Sample rules](#sample-rules)
-    - [Lab: Custom falco rules](#lab-custom-falco-rules)
-      - [Simple rule](#simple-rule)
-  - [Macros](#macros)
-    - [Lab: Macros](#lab-macros)
+    - [Lab: Install falco on Ubuntu](#lab-install-falco-on-ubuntu)
+      - [Install](#install)
+      - [Monitor host event](#monitor-host-event)
+    - [Lab: falco on k8s](#lab-falco-on-k8s)
+      - [Deploy Falco](#deploy-falco)
+      - [Monitor](#monitor)
+  - [Configuration file](#configuration-file)
+    - [Lab: disable sending alerts to syslog.](#lab-disable-sending-alerts-to-syslog)
 
 ---
 
@@ -39,9 +35,9 @@
 
 ---
 
-## Lab: falco on Ubuntu
+### Lab: Install falco on Ubuntu
 
-### Install
+#### Install
 
 - ref: https://falco.org/docs/getting-started/falco-linux-quickstart/
 
@@ -152,7 +148,7 @@ falco -L
 # ...
 ```
 
-### Monitor host event
+#### Monitor host event
 
 ```sh
 # Generate a suspicious event
@@ -170,11 +166,11 @@ sudo grep Sensitive /var/log/syslog
 
 ---
 
-## Lab: falco on k8s
+### Lab: falco on k8s
 
 - ref: https://falco.org/docs/getting-started/falco-kubernetes-quickstart/
 
-### Deploy Falco
+#### Deploy Falco
 
 ```sh
 helm repo add falcosecurity https://falcosecurity.github.io/charts
@@ -207,7 +203,7 @@ kubectl get pods -n falco
 # falco-qj7x2   2/2     Running   0          93s
 ```
 
-### Monitor
+#### Monitor
 
 ```sh
 # create a deploy
@@ -244,9 +240,9 @@ kubectl logs -l app.kubernetes.io/name=falco -n falco -c falco | grep Warning
 
 ---
 
-## Custom Falco Rules
+## Configuration file
 
-- falco rule path:
+- falco path:
 
 ```
 /etc/falco/
@@ -257,103 +253,71 @@ kubectl logs -l app.kubernetes.io/name=falco -n falco -c falco | grep Warning
 └── rules.d/                    # Additional rule files
 ```
 
-- required keys
-
-| Key       | Description                                                                                        |
-| --------- | -------------------------------------------------------------------------------------------------- |
-| rule      | unique name for the rule.                                                                          |
-| desc      | A human-readable description of what the rule does, explaining the security threat being detected. |
-| condition | A logical expression that defines when the rule should trigger an alert.                           |
-| output    | The alert message that is generated when the rule condition is met                                 |
-| priority  | The severity level of the rule                                                                     |
-
-- priority values:
-  - `emergency`, `alert`, `critical`, `error`, `warning`, `notice`, `informational`, `debug`.
+- Configuration file path:
+  - `/etc/falco.yaml`
+  - containing a collection of key: value or key: [value list] pairs.
 
 ---
 
-### Sample rules
+- common config:
 
 ```yaml
-- rule: Detect curl Execution in Kubernetes Pod
-  desc: Detects when the curl utility is executed within a Kubernetes pod.
-  condition: >
-    spawned_process and container and
-    proc.name = "curl"
-  output: >
-    Suspicious process detected (curl) inside a Kubernetes pod.
-  priority: WARNING
-```
+# additional config file path; debug when config cannot load
+config_files:
+  - /etc/falco/config.d
 
-- sample:
+# rule files paths; debug when rules cannnot apply
+rules_files:
+  - /etc/falco/falco_rules.yaml
+  - /etc/falco/falco_rules.local.yaml
+  - /etc/falco/rules.d
 
-```yaml
-- rule: shell_in_container
-  desc: notice shell activity within a container
-  condition: >
-    (evt.type in (execve, execveat)) and
-    container.id != host and
-    (proc.name = bash or
-     proc.name = ksh)
-  output: >
-    shell in a container |
-    user=%user.name container_id=%container.id container_name=%container.name
-    shell=%proc.name parent=%proc.pname cmdline=%proc.cmdline
-  priority: WARNING
+# Enable sending alerts to standard output.
+stdout_output:
+  enabled: true
+
+# Send alerts to syslog.
+syslog_output:
+  enabled: true
+
+# priority level
+priority: debug
 ```
 
 ---
 
-### Lab: Custom falco rules
-
-#### Simple rule
-
-```yaml
-# sudo nano ~/cks/falco/falco_custom_rules_cm.yaml
-customRules:
-  custom-rules.yaml: |-
-    - rule: Write below etc
-      desc: An attempt to write to /etc directory
-      condition: >
-        (evt.type in (open,openat,openat2) and evt.is_open_write=true and fd.typechar='f' and fd.num>=0)
-        and fd.name startswith /etc
-      output: "File below /etc opened for writing | file=%fd.name pcmdline=%proc.pcmdline gparent=%proc.aname[2] ggparent=%proc.aname[3] gggparent=%proc.aname[4] evt_type=%evt.type user=%user.name user_uid=%user.uid user_loginuid=%user.loginuid process=%proc.name proc_exepath=%proc.exepath parent=%proc.pname command=%proc.cmdline terminal=%proc.tty"
-      priority: WARNING
-      tags: [filesystem, mitre_persistence]
-
-```
+### Lab: disable sending alerts to syslog.
 
 ```sh
-# upgrade falco
-helm upgrade --namespace falco falco falcosecurity/falco --set tty=true -f ~/cks/falco/falco_custom_rules_cm.yaml
+# ####################
+# before
+# ####################
+# behavior
+sudo cat /etc/shadow
 
+# monitor
+sudo journalctl _COMM=falco -f
+# 08:20:25.307213751: Warning Sensitive file opened for reading by non-trusted program | file=/etc/shadow gparent=sudo ggparent=bash gggparent=sshd evt_type=openat user=root user_uid=0 user_loginuid=1000 process=cat proc_exepath=/usr/bin/cat parent=sudo command=cat /etc/shadow terminal=34819 container_id=host container_name=host container_image_repository= container_image_tag= k8s_pod_name=<NA> k8s_ns_name=<NA>
 
-kubectl run nginx-pod --image=nginx
+# ####################
+# Disable syslog
+# ####################
+# backup config
+ls /etc/falco/falco.yaml
+sudo cp falco.yaml falco.yaml.bak
 
-kubectl exec -it nginx-pod -- curl google.com
-# <HTML><HEAD><meta http-equiv="content-type" content="text/html;charset=utf-8">
-# <TITLE>301 Moved</TITLE></HEAD><BODY>
-# <H1>301 Moved</H1>
-# The document has moved
-# <A HREF="http://www.google.com/">here</A>.
-# </BODY></HTML>
+# Enable sending alerts to syslog.
+sudo vi /etc/falco/falco.yaml
+# update
+# syslog_output:
+#   enabled: false
 
-# specify process name falco; priority=warning
-kubectl logs -l app.kubernetes.io/name=falco -n falco -c falco | grep Warning
-sudo journalctl _COMM=falco -p warning
-```
+sudo systemctl restart falco
 
----
+# behavior
+sudo cat /etc/shadow
 
-## Macros
-
-- `Macros`
-  - provide a way to **define common sub-portions of rules** in a reusable way.
-
----
-
-### Lab: Macros
-
-```sh
-
+# monitor
+sudo journalctl _COMM=falco -f
+# returns none
 ```

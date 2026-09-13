@@ -77,8 +77,11 @@
 
 - monitoring
   - [Falco](./monitor/falco.md)
+  - [Falco - Custom rules](./monitor/falco_custom_rule.md)
+  - [Sysdig](./monitor/sysdig.md)
 
 ---
 
 https://github.com/techiescamp/cks-certification-guide
 https://github.com/SebastianUA/Certified-Kubernetes-Security-Specialist
+https://github.com/zealvora/certified-kubernetes-security-specialist
