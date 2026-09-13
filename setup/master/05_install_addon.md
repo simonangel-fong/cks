@@ -2,7 +2,6 @@
 
 - [CKS setup: master install addon](#cks-setup-master-install-addon)
   - [Install `helm`](#install-helm)
-  - [Cluster CIDR](#cluster-cidr)
   - [Install CNI (Calico)](#install-cni-calico)
   - [Install metrics server](#install-metrics-server)
   - [Install `nginx ingress controller`](#install-nginx-ingress-controller)
@@ -37,44 +36,45 @@ helm version
 
 ---
 
-## Cluster CIDR
-
-```sh
-IP_POD_CIDR="10.244.0.0/16"
-
-# get cluster ip cidr
-kubectl cluster-info dump | grep -m 1 cluster-cidr
-#  "--cluster-cidr=10.244.0.0/16",
-```
-
----
-
 ## Install CNI (Calico)
 
 ```sh
-CALICO_VERSION="v3.31.3"
+# get cluster ip cidr
+kubectl cluster-info dump | grep -m 1 cluster-cidr
+#  "--cluster-cidr=10.244.0.0/16",
 
-helm repo add projectcalico https://docs.tigera.io/calico/charts
-helm repo update
+IP_POD_CIDR="10.244.0.0/16"
+CALICO_VERSION="v3.32.2"
 
 # ##############################
-# Install the Tigera operator + Calico
+# Install CRDs
 # ##############################
-helm upgrade --install calico projectcalico/tigera-operator \
-  --version "$CALICO_VERSION" \
-  --namespace tigera-operator --create-namespace \
-  --set installation.calicoNetwork.ipPools[0].name=default-ipv4-ippool \
-  --set installation.calicoNetwork.ipPools[0].cidr="$IP_POD_CIDR" \
-  --set installation.calicoNetwork.ipPools[0].encapsulation=VXLANCrossSubnet \
-  --wait
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/operator-crds.yaml"
+
+# ##############################
+# Install Tigera operator
+# ##############################
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/tigera-operator.yaml"
+
+# ##############################
+# Override default pod CIDR (192.168.0.0/16)
+# ##############################
+curl -fL -o /tmp/custom-resources.yaml "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/custom-resources.yaml"
+
+sed -i "s|cidr: 192.168.0.0/16|cidr: $IP_POD_CIDR|" /tmp/custom-resources.yaml
+
+# confirm the cidr was replaced
+grep cidr /tmp/custom-resources.yaml
+#         cidr: 10.244.0.0/16
+
+# ##############################
+# Install Calico
+# ##############################
+kubectl create -f /tmp/custom-resources.yaml
 
 # ##############################
 # Verify
 # ##############################
-kubectl get ippools -o custom-columns=NAME:.metadata.name,CIDR:.spec.cidr
-# NAME                  CIDR
-# default-ipv4-ippool   10.244.0.0/16
-
 watch -n 1 kubectl get tigerastatus
 # NAME        AVAILABLE   PROGRESSING   DEGRADED   SINCE
 # apiserver   True        False         False      44s
@@ -82,6 +82,10 @@ watch -n 1 kubectl get tigerastatus
 # goldmane    True        False         False      19s
 # ippools     True        False         False      109s
 # whisker     True        False         False      39s
+
+kubectl get ippools -o custom-columns=NAME:.metadata.name,CIDR:.spec.cidr
+# NAME                  CIDR
+# default-ipv4-ippool   10.244.0.0/16
 
 kubectl get node
 # NAME           STATUS   ROLES           AGE   VERSION
@@ -169,7 +173,6 @@ etcdctl version
 ```sh
 helm list --all-namespaces
 # NAME            NAMESPACE       REVISION  STATUS    CHART
-# calico          tigera-operator 1         deployed  tigera-operator-v3.31.3
 # ingress-nginx   ingress-nginx   1         deployed  ingress-nginx-4.14.1
 # metrics-server  kube-system     1         deployed  metrics-server-3.14.1
 ```
