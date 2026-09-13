@@ -6,7 +6,13 @@
   - [Install metrics server](#install-metrics-server)
   - [Install `nginx ingress controller`](#install-nginx-ingress-controller)
   - [Install `etcd-client`](#install-etcd-client)
-  - [Review installed releases](#review-installed-releases)
+  - [Install `MetalLB`](#install-metallb)
+  - [Install Isio](#install-isio)
+  - [Install falco](#install-falco)
+  - [install trivy](#install-trivy)
+  - [Install kube-bench](#install-kube-bench)
+  - [Install checkov](#install-checkov)
+  - [Install bom](#install-bom)
 
 ## Install `helm`
 
@@ -31,7 +37,6 @@ sudo apt-get update
 sudo apt-get install helm
 
 helm version
-# version.BuildInfo{Version:"v4.3.0", GitCommit:"bec5b06ed841fe5269972d864d5177944fd5970f", GitTreeState:"clean", GoVersion:"go1.27.1", KubeClientVersion:"v1.37"}
 ```
 
 ---
@@ -49,7 +54,7 @@ CALICO_VERSION="v3.32.2"
 # ##############################
 # Install CRDs
 # ##############################
-kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/operator-crds.yaml"
+kubectl create -f "https://raw.githubusercontent.com/projectcalico/calico/$CALICO_VERSION/manifests/v1_crd_projectcalico_org.yaml"
 
 # ##############################
 # Install Tigera operator
@@ -76,16 +81,12 @@ kubectl create -f /tmp/custom-resources.yaml
 # Verify
 # ##############################
 watch -n 1 kubectl get tigerastatus
-# NAME        AVAILABLE   PROGRESSING   DEGRADED   SINCE
-# apiserver   True        False         False      44s
-# calico      True        False         False      39s
-# goldmane    True        False         False      19s
-# ippools     True        False         False      109s
-# whisker     True        False         False      39s
 
 kubectl get ippools -o custom-columns=NAME:.metadata.name,CIDR:.spec.cidr
 # NAME                  CIDR
 # default-ipv4-ippool   10.244.0.0/16
+
+kubectl get po -n calico-system
 
 kubectl get node
 # NAME           STATUS   ROLES           AGE   VERSION
@@ -97,27 +98,22 @@ kubectl get node
 ## Install metrics server
 
 ```sh
-METRICS_VERSION="3.14.1"
+# ##############################
+# Install metrics server
+# ##############################
+kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
 
-helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
-helm repo update
+kubectl patch deployment metrics-server -n kube-system --type=json \
+  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
 
-helm upgrade --install metrics-server metrics-server/metrics-server \
-  --version "$METRICS_VERSION" \
-  --namespace kube-system \
-  --set 'args={--kubelet-insecure-tls,--kubelet-preferred-address-types=InternalIP}' \
-  --wait
+kubectl rollout status deployment metrics-server -n kube-system
 
 # ##############################
-# Verify
+# Install metrics server
 # ##############################
 kubectl get deployment metrics-server -n kube-system
-# NAME             READY   UP-TO-DATE   AVAILABLE   AGE
-# metrics-server   1/1     1            1           68s
 
 kubectl top node
-# NAME           CPU(cores)   CPU(%)   MEMORY(bytes)   MEMORY(%)
-# controlplane   182m         9%       1543Mi          40%
 ```
 
 ---
@@ -125,33 +121,14 @@ kubectl top node
 ## Install `nginx ingress controller`
 
 ```sh
-INGRESS_VERSION="4.14.1"
-
-helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
-helm repo update
-
-helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
-  --version "$INGRESS_VERSION" \
-  --namespace ingress-nginx --create-namespace \
-  --set controller.service.type=NodePort \
-  --set controller.service.nodePorts.http=30080 \
-  --set controller.service.nodePorts.https=30443 \
-  --wait
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.14.1/deploy/static/provider/cloud/deploy.yaml
 
 # ##############################
 # Verify
 # ##############################
 kubectl get deploy --namespace=ingress-nginx
-# NAME                       READY   UP-TO-DATE   AVAILABLE   AGE
-# ingress-nginx-controller   1/1     1            1           16m
-
-kubectl get svc --namespace=ingress-nginx
-# NAME                       TYPE       CLUSTER-IP      PORT(S)
-# ingress-nginx-controller   NodePort   10.104.12.201   80:30080/TCP,443:30443/TCP
-
 kubectl get ingressclass
-# NAME    CONTROLLER             PARAMETERS   AGE
-# nginx   k8s.io/ingress-nginx   <none>       16m
+kubectl get svc --namespace=ingress-nginx
 ```
 
 ---
@@ -162,17 +139,165 @@ kubectl get ingressclass
 sudo apt-get install etcd-client -y
 
 etcdctl version
-# etcdctl version: 3.4.30
-# API version: 3.4
 ```
 
 ---
 
-## Review installed releases
+## Install `MetalLB`
 
 ```sh
-helm list --all-namespaces
-# NAME            NAMESPACE       REVISION  STATUS    CHART
-# ingress-nginx   ingress-nginx   1         deployed  ingress-nginx-4.14.1
-# metrics-server  kube-system     1         deployed  metrics-server-3.14.1
+# update config
+kubectl edit configmap -n kube-system kube-proxy
+# find:
+# ipvs:
+#   strictARP: false
+# replace:
+# ipvs:
+#   strictARP: true
+
+kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.15.3/config/manifests/metallb-native.yaml
+
+# confirm
+kubectl get pods -n metallb-system
+
+# Create IPAddressPool that MetalLB can assign from.
+tee ~/metallb-ip-pool.yaml <<EOF
+apiVersion: metallb.io/v1beta1
+kind: IPAddressPool
+metadata:
+  name: web-pool
+  namespace: metallb-system
+spec:
+  addresses:
+  - 192.168.10.210-192.168.10.220
+EOF
+
+kubectl apply -f ~/metallb-ip-pool.yaml
+
+kubectl get IPAddressPool web-pool -n metallb-system
+# NAME       AUTO ASSIGN   AVOID BUGGY IPS   ADDRESSES
+# web-pool   true          false             ["192.168.10.210-192.168.10.220"]
+
+# Create L2Advertisement to announce those IPs via ARP.
+tee ~/metallb-l2adv.yaml <<EOF
+apiVersion: metallb.io/v1beta1
+kind: L2Advertisement
+metadata:
+  name: web-l2
+  namespace: metallb-system
+spec:
+  ipAddressPools:
+  - web-pool
+EOF
+
+kubectl apply -f ~/metallb-l2adv.yaml
+# l2advertisement.metallb.io/web-l2 created
+
+kubectl get L2Advertisement web-l2 -n metallb-system
+
+# confirm: MetalLB assign an external IP to Nginx Gateway Service
+kubectl get svc -n ingress-nginx
+# NAME                                 TYPE           CLUSTER-IP       EXTERNAL-IP      PORT(S)                      AGE
+# ingress-nginx-controller             LoadBalancer   10.105.107.57    192.168.10.210   80:30154/TCP,443:30846/TCP   5m41s
+# ingress-nginx-controller-admission   ClusterIP      10.101.217.192   <none>           443/TCP                      5m41s
+```
+
+---
+
+## Install Isio
+
+```sh
+curl -L https://istio.io/downloadIstio | sh -
+cd istio-1.31.0
+export PATH=$PWD/bin:$PATH
+
+istioctl install --set profile=demo -y
+
+kubectl get pods -n istio-system
+
+istioctl version
+```
+
+---
+
+## Install falco
+
+```sh
+curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | sudo gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
+
+# update repo list
+sudo bash -c 'cat << EOF > /etc/apt/sources.list.d/falcosecurity.list
+deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main
+EOF'
+
+sudo apt-get update -y
+
+sudo apt install -y dkms make linux-headers-$(uname -r)
+sudo apt-get install -y dialog
+
+sudo apt-get install -y falco
+# 2
+# 2
+
+sudo systemctl status falco-modern-bpf.service --no-page
+
+```
+
+---
+
+## install trivy
+
+```sh
+sudo apt-get install wget gnupg
+wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb generic main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+sudo apt-get update
+sudo apt-get install trivy
+
+trivy version
+# Version: 0.74.0
+```
+
+---
+
+## Install kube-bench
+
+```sh
+# Download
+curl -L https://github.com/aquasecurity/kube-bench/releases/download/v0.16.0/kube-bench_0.16.0_linux_amd64.deb -o /tmp/kube-bench.deb
+
+# Install
+sudo apt install /tmp/kube-bench.deb
+
+# Verify
+kube-bench version
+```
+
+---
+
+## Install checkov
+
+```sh
+sudo apt update && sudo apt install python3-pip python3.12-venv -y
+
+python3 -m venv ~/cks/.venv
+source ~/cks/.venv/bin/activate
+pip install checkov
+
+# confirm
+checkov --version
+```
+
+---
+
+## Install bom
+
+```sh
+curl -L \
+  https://github.com/kubernetes-sigs/bom/releases/download/v0.7.1/bom-amd64-linux \
+  -o /tmp/bom
+
+sudo install -m 0755 /tmp/bom /usr/local/bin/bom
+
+bom version
 ```

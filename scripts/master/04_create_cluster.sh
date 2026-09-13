@@ -48,6 +48,9 @@ sudo chown "$(id -u):$(id -g)" "$HOME/.kube/config"
 # Verify node registration (NotReady until CNI installation).
 kubectl get nodes
 
+# untaint
+kubectl taint node controlplane node-role.kubernetes.io/control-plane:NoSchedule-
+
 # ##############################
 # Join command
 # ##############################

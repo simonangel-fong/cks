@@ -50,6 +50,9 @@ kubectl get nodes
 # NAME           STATUS     ROLES           AGE   VERSION
 # controlplane   NotReady   control-plane   57s   v1.35.8
 
+# untaint
+kubectl taint node controlplane node-role.kubernetes.io/control-plane:NoSchedule-
+
 # ##############################
 # Join command
 # ##############################

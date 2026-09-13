@@ -37,7 +37,7 @@ sudo apt install /tmp/kube-bench.deb
 # Verify
 kube-bench version
 # 0.16.0
-s
+
 sudo kube-bench
 # ...
 # == Summary policies ==
