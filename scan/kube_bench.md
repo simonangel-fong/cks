@@ -23,6 +23,19 @@
 
 ---
 
+### Command Commands
+
+| Command                                 | Description                                                               |
+| --------------------------------------- | ------------------------------------------------------------------------- |
+| `kube-bench run`                        | Run tests to audit the Kubernetes cluster against security best practices |
+| `kube-bench run  --targets master`      | Run tests to audit controlplane                                           |
+| `kube-bench run  --targets node`        | Run tests to audit worker node                                            |
+| `kube-bench run --benchmark <version>`  | Manually specify CIS benchmark version.                                   |
+| `kube-bench run --check  "1.1.1,1.1.2"` | Run tests against list of checks                                          |
+| `kube-bench run --group="1.1"`          |                                                                           |
+
+---
+
 ## Lab: install
 
 - ref: https://aquasecurity.github.io/kube-bench/v0.6.6/installation/

@@ -85,6 +85,25 @@
 
 ## Practices
 
+- API resource
+  - [secret](./practice/secret.md)
+  - [sa](./practice/sa.md)
+  - [net pol](./practice/net_pol.md)
+- pod
+  - [security context](./practice/context.md)
+- Scan
+  - [static analysis](./practice/static.md)
+  - [CIS benchmark](./practice/benchmark.md)
+- cluster
+  - [kubeadm](./practice/kubeadm.md)
+  - [node](./practice/node.md)
+  - [ImagePolicyWebhook](./practice/imagepolicywebhook.md)
+- [runtime & image](./practice/runtime_image.md)
+- monitor
+  - [*falco](./practice/falco.md)
+  - [*audit](./practice/audit.md)
+- [cilium](./practice/cilium.md)
+
 - Exams love Deployment manifests more then Pod manifests.
 
 - documentation list; https://docs.linuxfoundation.org/tc-docs/certification/certification-resources-allowed#certified-kubernetes-security-specialist-cks
@@ -203,3 +222,8 @@
 https://github.com/techiescamp/cks-certification-guide
 https://github.com/SebastianUA/Certified-Kubernetes-Security-Specialist
 https://github.com/zealvora/certified-kubernetes-security-specialist
+
+- youtube question
+  - https://www.youtube.com/watch?v=3MGlvZX2bxo&list=PLvOcEsRqg0tKuwli3RsCZGZUGdCZOq4Xu
+  - https://www.youtube.com/watch?v=Jd_j2wruz6E&list=PLpbwBK0ptssx38770vYNwZEuCeGNw54CH
+  - https://www.youtube.com/watch?v=XQPiev_u30k&list=PLyKswBedEWujChLpKK6zFj0S4MOUaxqR3&index=7
