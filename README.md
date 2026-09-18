@@ -101,8 +101,8 @@
   - [Image](./practice/pod/image.md)
   - [Daemon](./practice/pod/daemon.md)
   - [Security Context](./practice/pod/context.md)
-  - [apparmor](./practice/apparmor.md)
-  - [rbac](./practice/rbac.md)
+  - [AppArmor](./practice/pod/apparmor.md)
+  - [RBAC](./practice/rbac.md)
   - [sa](./practice/sa.md)
 - Cluster
   - [node](./practice/node.md)
