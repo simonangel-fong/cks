@@ -7,6 +7,11 @@
 
 ---
 
+- Falco
+  - Be prepared to develop a `Falco rule` according to a given specification.
+  - If you encounter issues with **Falco log generation**, verify that `syslog` is enabled with **debug priority**.
+  - Alternatively, run `Falco` directly from the **command line**, bypassing `systemd`.
+
 ## falco: rule pod sh???
 
 - context;
@@ -41,4 +46,8 @@ kubectl run web-app --image=nginx
 # pod/web-app created
 
 kubectl exec -it web-app -- sh
+
+journalctl -fu falco
+
+cat /var/log/syslog | grep falco
 ```

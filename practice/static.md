@@ -7,8 +7,14 @@
   - [Static analysis: security context](#static-analysis-security-context)
   - [trivy scan image](#trivy-scan-image)
   - [trivy scan cluster](#trivy-scan-cluster)
+  - [Kubesec: Scan Kubernetes manifests](#kubesec-scan-kubernetes-manifests)
 
 ---
+
+- Static Analysis on Kubernetes Manifest
+  - should be able to read a given Kubernetes manifest file and fix any security related issues.
+    - know the best practices
+    - focus on security context
 
 ## Static analysis: root file system
 
@@ -152,7 +158,7 @@ cat /tmp/secure_image
 
 ```sh
 k create ns app
-k create deploy web1 -n app --image=nginx:1.19.1-alpine-perl --replicas=2 
+k create deploy web1 -n app --image=nginx:1.19.1-alpine-perl --replicas=2
 k create deploy web2 -n app --image=nginx:1.20.2-alpine --replicas=2
 
 ```
@@ -194,4 +200,33 @@ k -n app get deploy
 # NAME   READY   UP-TO-DATE   AVAILABLE   AGE
 # web1   0/0     0            0           6m50s
 # web2   2/2     2            2           6m50s
+```
+
+---
+
+## Kubesec: Scan Kubernetes manifests
+
+- task:
+  - scan `~/pod.yaml` using `kubesec`
+
+- setup env:
+
+```sh
+cat <<EOF > ~/pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: kubesec-demo
+spec:
+  containers:
+  - name: kubesec-demo
+    image: gcr.io/google-samples/node-hello:1.0
+    securityContext:
+      readOnlyRootFilesystem: true
+EOF
+```
+
+```sh
+# Scan manifest using binary
+kubesec scan pod.yaml
 ```

@@ -3,11 +3,103 @@
 [Back](../README.md)
 
 - [Practices - Network policy](#practices---network-policy)
-  - [Network policy](#network-policy)
+  - [ref](#ref)
+  - [NP: deny all](#np-deny-all)
+  - [NP: ip block](#np-ip-block)
+  - [NP: ns](#np-ns)
 
 ---
 
-## Network policy
+## ref
+
+- keyword: network policy
+- ref: https://kubernetes.io/docs/concepts/services-networking/network-policies/
+
+## NP: deny all
+
+- task
+  - an existing deployment is running in default ns
+  - create a network policy `deny-all` to secure the deployment by deny both ingress and engress.
+- setup
+
+```sh
+kubectl create deploy app --image=nginx --replicas=2
+kubectl expose deploy app --port=80 --target-port=80
+```
+
+- solution
+
+```yaml
+# vi np.yaml
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-all
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+```
+
+```sh
+k apply -f np.yaml
+
+k get po -o wide
+# NAME                   READY   STATUS    RESTARTS   AGE    IP               NODE           NOMINATED NODE   READINESS GATES
+# app-6b97cd8cbd-rjnrc   1/1     Running   0          3m8s   10.244.196.130   node01         <none>           <none>
+# app-6b97cd8cbd-z4vzd   1/1     Running   0          3m8s   10.244.49.119    controlplane   <none>           <none>
+
+k run test --image=busybox --command -- sleep 3600
+k exec -it test -- curl 10.244.196.130
+k exec -it test -- curl app.default.svc.cluster.local
+
+```
+
+---
+
+## NP: ip block
+
+- task
+  - create np name np-ip that allows outbound traffic to any ip `0.0.0.0/0` but block ip `192.168.10.150/32`
+
+---
+
+- solution
+
+```yaml
+# vi np-ip.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: np-ip
+  namespace: default
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 192.168.10.150/32
+```
+
+```sh
+k apply -f np-ip.yaml
+
+k run test --image=alpine/curl --command -- sleep 3600
+k exec -it test -- sh
+ping -c2 8.8.8.8
+ping -c2 1.1.1.1
+ping -c2 192.168.10.150 # block
+```
+
+---
+
+## NP: ns
 
 - task
   - create `beta` ns, create deployment in `beta` ns with name `beta-web` and iamge `nginx:latest`, replicas =2, container name = `web`, container port = `80`

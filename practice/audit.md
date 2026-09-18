@@ -3,11 +3,25 @@
 [Back](../README.md)
 
 - [Practices - audit](#practices---audit)
-  - [Audit logging](#audit-logging)
+  - [Audit: Secret](#audit-secret)
+  - [Audit: pod](#audit-pod)
 
 ---
 
-## Audit logging
+- Auditing
+  - enable Auditing based on the requirements.
+  - common flag
+    - `--audit-log-path`: Specifies the file path where the audit log is written.
+    - `--audit-log-maxage`: Defines the maximum number of days to retain old audit log files before deletion.
+    - `--audit-log-maxbackup`: Sets the maximum number of old audit log files to retain.
+    - `--audit-log-maxsize`: Specifies the maximum size (in megabytes) of the audit log file before it gets rotated.
+  - sample Question
+    - Logs should be stored at /var/log/demo-audit.logs
+    - Logs should be retained for the next 30 days.
+    - Maximum size before rotation should be 500 MB.
+    - Maximum number of 10 audit log files should be made available.
+
+## Audit: Secret
 
 - task:
   - Configurethe api server for audit loggin
@@ -23,23 +37,24 @@
 - solution
 
 - create policy
+
 ```yaml
 # vi /etc/kubernetes/audit-policy/policy.yaml
-apiVersion: audit.k8s.io/v1 
+apiVersion: audit.k8s.io/v1
 kind: Policy
 rules:
   - level: None
     resources:
-    - group: ""
-      resources: ["secrets"]
+      - group: ""
+        resources: ["secrets"]
     namespaces: ["kube-system"]
   - level: Metadata
     resources:
-    - group: ""
-      resources: ["secrets"]
+      - group: ""
+        resources: ["secrets"]
 ```
 
--  enable audit loging
+- enable audit loging
 
 ```sh
 vi /etc/kubernetes/manifests/kube-apiserver.yaml
@@ -80,3 +95,59 @@ sudo tail /etc/kubernetes/audit-logs/audit.log -f
 
 ```
 
+## Audit: pod
+
+- task:
+  - enable audit
+    - maxsize =7
+    - maxbackup =2
+    - log path: /var/log/kubernetes/audit/
+  - create audit policy
+    - path: /etc/kubernetes/audit/audit-policy.yaml
+    - resource: `pods`
+    - level: `RequestResponse`
+    - resource: `pods/log`,`pods/status`
+    - level: `Metadata`
+    - omitStages: `RequestReceived`
+
+```yaml
+# sudo vi /etc/kubernetes/audit/audit-policy.yaml
+apiVersion: audit.k8s.io/v1 # This is required.
+kind: Policy
+omitStages:
+  - "RequestReceived"
+rules:
+  - level: RequestResponse
+    resources:
+      - group: ""
+        resources: ["pods"]
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["pods/log", "pods/status"]
+```
+
+```sh
+sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --audit-policy-file=/etc/kubernetes/audit/audit-policy.yaml
+# - --audit-log-path=/var/log/kubernetes/audit/audit.log
+
+#     volumeMounts:
+#     - mountPath: /etc/kubernetes/audit/audit-policy.yaml
+#       name: audit
+#       readOnly: true
+#     - mountPath: /var/log/kubernetes/audit/
+#       name: audit-log
+#       readOnly: false
+
+#   volumes:
+#   - name: audit
+#     hostPath:
+#       path: /etc/kubernetes/audit/audit-policy.yaml
+#       type: File
+#   - name: audit-log
+#     hostPath:
+#       path: /var/log/kubernetes/audit/
+#       type: DirectoryOrCreate
+
+```

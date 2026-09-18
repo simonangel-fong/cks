@@ -4,18 +4,24 @@
 
 - [Practices - Cilium](#practices---cilium)
   - [Cilium NP](#cilium-np)
+  - [Entity](#entity)
 
 ---
+
+- Network Policies + Cilium Network Policies
+  - For Cilium Network Policy:
+    - Be aware of `ingressDeny` and `egressDeny` block.
+    - Be aware of the `Entities` in Cilium Network Policies.
 
 ## Cilium NP
 
 - context:
-  - app-backend is deployed in backend ns
-  - app-frontend is deployed in frontend ns
+  - `app-backend` is deployed in `backend` ns
+  - `app-frontend` is deployed in `frontend` ns
   - cilium is installed
 - task:
-  - create cilium network policy name `prod-netpol`
-    - allow only app-frontend in frontend ns to access app-backnd in backend ns
+  - create cilium network policy name `frontend`
+    - allow only app in `backend` ns to access app in `frontend` ns
 
 ---
 
@@ -27,12 +33,11 @@ kubectl create namespace frontend
 kubectl create namespace backend
 
 # Deploy backend
-kubectl create deployment app-backend --namespace=backend --image=nginx:alpine
+kubectl create deployment backend -n backend --image=nginx:alpine
 
-kubectl expose deployment app-backend --namespace=backend --port=80 --target-port=80
+# Deploy frontend
+kubectl create deployment frontend -n frontend --image=nginx:alpine
 
-# Deploy authorized frontend client
-kubectl create deployment app-frontend --namespace=frontend --image=alpine/curl -- sleep 3600
 ```
 
 ---
@@ -40,63 +45,74 @@ kubectl create deployment app-frontend --namespace=frontend --image=alpine/curl 
 - solution
 
 ```sh
-# get label
-kubectl get deploy --show-labels -n backend
-# NAME          READY   UP-TO-DATE   AVAILABLE   AGE   LABELS
-# app-backend   1/1     1            0           10s   app=app-backend
+kubectl get po -n frontend -o wide --show-labels
+# NAME                        READY   STATUS    RESTARTS   AGE   IP           NODE     NOMINATED NODE   READINESS GATES   LABELS
+# frontend-7d46867bb4-xq7wp   1/1     Running   0          9s    10.0.1.137   node01   <none>           <none>            app=frontend,pod-template-hash=7d46867bb4
 
-kubectl get deploy --show-labels -n frontend
-# NAME           READY   UP-TO-DATE   AVAILABLE   AGE     LABELS
-# app-frontend   1/1     1            1           5m48s   app=app-frontend
+kubectl get po -n backend -o wide --show-labels
+# NAME                       READY   STATUS    RESTARTS   AGE   IP           NODE     NOMINATED NODE   READINESS GATES   LABELS
+# backend-66bb89cb8d-fq4jk   1/1     Running   0          27s   10.0.1.169   node01   <none>           <none>            app=backend,pod-template-hash=66bb89cb8d
 ```
 
 - create netpol
 
 ```yaml
-# vi prod-netpol.yaml
-apiVersion: cilium.io/v2
+# vi frontend
+apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
-  name: prod-netpol
-  namespace: backend
+  name: frontend
+  namespace: frontend
 spec:
   endpointSelector:
     matchLabels:
-      app: app-backend
-
+      app: frontend
   ingress:
     - fromEndpoints:
         - matchLabels:
-            k8s:io.kubernetes.pod.namespace: frontend
-            app: app-frontend
-      toPorts:
-        - ports:
-            - port: "80"
-              protocol: TCP
+            "k8s:io.kubernetes.pod.namespace": backend
+            app: backend
 ```
 
 ```sh
-k apply -f prod-netpol.yaml
-# ciliumnetworkpolicy.cilium.io/prod-netpol created
+k apply -f frontend.yaml
+# ciliumnetworkpolicy.cilium.io/frontend created
 
-k get cnp -n backend
-# NAME          AGE   VALID
-# prod-netpol   23s   True
+k get cnp -n frontend
+# NAMESPACE   NAME       AGE   VALID
+# frontend    frontend   17s   True
 
 # test
-kubectl exec -n frontend deployment/app-frontend -- curl -Is --connect-timeout 3 app-backend.backend.svc.cluster.local
-# HTTP/1.1 200 OK
-# Server: nginx/1.31.5
-# Date: Tue, 15 Sep 2026 16:25:23 GMT
-# Content-Type: text/html
-# Content-Length: 896
-# Last-Modified: Wed, 02 Sep 2026 17:23:39 GMT
-# Connection: keep-alive
-# ETag: "6a985b9b-380"
-# Accept-Ranges: bytes
+kubectl -n backend exec backend-66bb89cb8d-fq4jk -- curl 10.0.1.137
 
-# unauthorized pod
-kubectl run client --image=alpine/curl --command -- sleep 3600
-kubectl exec client -- curl -Is --connect-timeout 3 app-backend.backend.svc.cluster.local
-# command terminated with exit code 28
+# test in default
+kubectl run test --image=alpine/curl --command -- sleep 1h
+k exec test -- ping -c2 10.0.1.137
+# PING 10.0.1.137 (10.0.1.137): 56 data bytes
+
+# --- 10.0.1.137 ping statistics ---
+# 2 packets transmitted, 0 packets received, 100% packet loss
+# command terminated with exit code 1
 ```
+
+---
+
+```yaml
+# select specific label
+endpointSelector:
+  matchLabels:
+    app: frontend
+
+# select all
+endpointSelector:
+  matchLabels: {}
+
+# namespace
+- fromEndpoints:
+  - matchLabels:
+    "k8s:io.kubernetes.pod.namespace": backend
+    app: backend
+
+```
+
+## Entity

@@ -4,20 +4,34 @@
 
 - [Practices - Benchmark](#practices---benchmark)
   - [CIS Benchmark fix controlplane](#cis-benchmark-fix-controlplane)
-    - [Question](#question)
-    - [Solution](#solution)
 
 ---
+
+- CIS Benchmarks
+  - It is important to know about configuring Kubernetes components (Control Plane + Worker Node) **based on various CIS Benchmark** related configuration.
+  - Be very familiar with `kubeadm` structure and **troubleshooting** pointers.
+  - take backup of the config file before modifying
+  - e.g.,
+    - Set AuthorizationMode for API Server to RBAC,WebHook
+    - Disable Anonymous Authentication in Kubelet ( cat /var/lib/kubelet/config.yaml)
+    - Disable --auto-tls in etcd
+
+| Command                                     | description                   |
+| ------------------------------------------- | ----------------------------- |
+| `kube-bench run --targets master`           | benchmark master node         |
+| `kube-bench run --targets etcd`             | benchmark etcd                |
+| `kube-bench run --targets master -c 1.2.15` | benchmark against a document  |
+| `kube-bench run --config-dir cfg_dir`       | specify kube-bench config dir |
+| `kube-bench run --config config_file`       | specify a config file         |
 
 ## CIS Benchmark fix controlplane
 
-### Question
-
-use kube-bench to ensure 1.2.15 has status PASS
+- task
+  - use kube-bench to ensure 1.2.15 has status PASS
 
 ---
 
-### Solution
+- Solution
 
 ```sh
 # run check for all

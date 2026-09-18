@@ -1,16 +1,17 @@
-# Practices - runtime & image
+# Practices - Image
 
-[Back](../README.md)
+[Back](../../README.md)
 
-- [Practices - runtime \& image](#practices---runtime--image)
-  - [image: use digest](#image-use-digest)
-  - [image: deploy use digest](#image-deploy-use-digest)
+- [Practices - Image](#practices---image)
+  - [Image: deploy with digest](#image-deploy-with-digest)
+  - [Image: deploy use digest](#image-deploy-use-digest)
+  - [Image: Digest to run a Pod](#image-digest-to-run-a-pod)
   - [Dockerfile](#dockerfile)
-  - [Dockfile: secret](#dockfile-secret)
+  - [Dockerfile: manage secret](#dockerfile-manage-secret)
 
 ---
 
-## image: use digest
+## Image: deploy with digest
 
 - task:
   - create a pod named `crazy-pod` using `nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515`
@@ -22,13 +23,13 @@
 ```sh
 k run crazy-pod --image=nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
 
- k describe po crazy-pod | grep -i "image:"
+k describe po crazy-pod | grep -i "image:"
     # Image:          nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
 ```
 
 ---
 
-## image: deploy use digest
+## Image: deploy use digest
 
 - task:
   - convert the existing deplyment `crazy-deployment` to use the image digest `nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515`
@@ -49,13 +50,30 @@ k create deploy crazy-deployment --image=nginx
 k edit deploy crazy-deployment
       - image: nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
 
-k rollout restart deploy crazy-deployment
+# or
+k set image deploy/crazy-deployment \
+  nginx=nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
 
 # confirm
 k describe po | grep -i image:
     # Image:          nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
     # Image:          nginx@sha256:14cf3fc577e44ed7a7fbdb7eb9fdae07577d532f714d24517c2df90cd9c5a515
 
+```
+
+---
+
+## Image: Digest to run a Pod
+
+- task:
+  - create a deploy named `digest-pod` using image `nginx@sha256:5ddf6decf65ea64c0492cd38098a9db11cb0da682478d3e0cfa8cdfdeb112f30` with 2 replicas.
+
+```sh
+# Run a Pod using the image digest
+k create deploy digest-pod --image nginx@sha256:5ddf6decf65ea64c0492cd38098a9db11cb0da682478d3e0cfa8cdfdeb112f30 --replicas 2
+
+# To get the image digest of a Pod
+k describe pod digest-pod | grep -iE "Image ID"
 ```
 
 ---
@@ -108,7 +126,7 @@ docker exec c1 ps
 #     1 appuser   0:00 sleep 3600
 #    22 appuser   0:00 ps
 
-echo appuser > /opt/cks/username
+docker exec c1 whoami > /opt/cks/username
 cat /opt/cks/username
 # appuser
 
@@ -118,7 +136,7 @@ docker rm -f  c1
 
 ---
 
-## Dockfile: secret
+## Dockerfile: manage secret
 
 - context
   - dockerfile at /opt/cks/secret/Dockerfile
@@ -173,3 +191,5 @@ docker run -d --name app -e TOKEN="2fba3514-42f8-4de7-be1a-54e0f7c86547" app
 docker exec app bash
 # OCI runtime exec failed: exec failed: unable to start container process: exec: "bash": executable file not found in $PATH
 ```
+
+---

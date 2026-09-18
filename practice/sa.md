@@ -3,15 +3,19 @@
 [Back](../README.md)
 
 - [Practices - SA](#practices---sa)
-  - [sa](#sa)
-  - [Sa: apply to pod](#sa-apply-to-pod)
-  - [SA: token](#sa-token)
+  - [SA: basic](#sa-basic)
+  - [SA: apply to pod](#sa-apply-to-pod)
+  - [SA: disable token](#sa-disable-token)
 
 ---
 
-## sa
+- Service Account + Projected Volumes
+  - Know how to **create** `service accounts` with auto **mounting token** as disabled.
+  - Be familiar with mounting volume sources like SA using `Projected Volumes`.
 
-- question
+## SA: basic
+
+- task
 
 1. create new ns `ns-secure`
 2. create sa `secret-manager`
@@ -66,7 +70,7 @@ echo MTI3LjAuMC4xIGxvY2FsaG9zdAoxMjcuMC4xLjEgdWJ1bnR1LW5vZGUKCiMgVGhlIGZvbGxvd2l
 
 ```
 
-## Sa: apply to pod
+## SA: apply to pod
 
 - question
 - 1. in ns `ns-secure` create pod `secret-manager` with image `httpd:alpine` which uses the sa `secret-manager`
@@ -132,7 +136,7 @@ cat /etc/sec-a2/hosts
 
 ---
 
-## SA: token
+## SA: disable token
 
 - question
 
@@ -183,3 +187,5 @@ kubectl exec -it pod/pod-one -n one -- sh
 ls /var/run/secrets/kubernetes.io/serviceaccount
 # ls: cannot access '/var/run/secrets/kubernetes.io/serviceaccount': No such file or directory
 ```
+
+---

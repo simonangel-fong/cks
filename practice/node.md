@@ -3,12 +3,12 @@
 [Back](../README.md)
 
 - [Practices - Secure the node](#practices---secure-the-node)
-  - [close an unknow port](#close-an-unknow-port)
-  - [`NodeRestriction`](#noderestriction)
+  - [Disable Open Ports](#disable-open-ports)
+  - [Disable Service](#disable-service)
 
 ---
 
-## close an unknow port
+## Disable Open Ports
 
 - question
   - unwanted process running and listening on port `2379`
@@ -41,48 +41,24 @@ rm /usr/local/bin/etcd
 
 ---
 
-## `NodeRestriction`
+## Disable Service
 
-- task:
-  - enable `NodeRestriction` admission controller
-  - verify by adding the label `node-restrition.kubernetes.io/two=123` from `node01` to `node01`
-
----
-
-- solution
-  - ref: https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/#noderestriction
+- setup env
 
 ```sh
-sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
-# - --enable-admission-plugins=NodeRestriction,NamespaceLifecycle
-
-# ####################
-# label from node01
-# ####################
-# label current node as control-plane
-sudo kubectl --kubeconfig=/etc/kubernetes/kubelet.conf label node node01 node-role.kubernetes.io/control-plane="" --overwrite
-# Error from server (Forbidden): nodes "worker-node-01" is forbidden: User "system:node:node01" cannot get resource "nodes" in API group "" at the cluster scope: node 'node01' cannot read 'worker-node-01', only its own Node object
-
-# label current node as restiction
-sudo kubectl --kubeconfig=/etc/kubernetes/kubelet.conf label node node01 node-restriction.kubernetes.io/="" --overwrite
-# Error from server (Forbidden): nodes "node01" is forbidden: is not allowed to modify labels: node-restriction.kubernetes.io/
-
-# label controlplane node
-sudo kubectl --kubeconfig=/etc/kubernetes/kubelet.conf label node controlplane new-label="123" --overwrite
-# Error from server (Forbidden): nodes "controlplane" is forbidden: User "system:node:node01" cannot get resource "nodes" in API group "" at the cluster scope: node 'node01' cannot read 'controlplane', only its own Node object
-
-# label current node a new label
-sudo kubectl --kubeconfig=/etc/kubernetes/kubelet.conf label node node01 new-label="123" --overwrite
-# node/node01 labeled
-
-# ####################
-# label from controlplane
-# ####################
-# label node01
-sudo kubectl --kubeconfig=/etc/kubernetes/admin.conf label node node01 node-role.kubernetes.io/control-plane="" --overwrite
-# node/node01 labeled
-
-# label controlplane node
-sudo kubectl --kubeconfig=/etc/kubernetes/kubelet.conf label node controlplane new-label="123" --overwrite
-# node/controlplane labeled
+sudo apt install vsftpd
+sudo systemctl start vsftpd
+sudo systemctl status vsftpd
 ```
+
+```sh
+# Stop a running service
+sudo systemctl stop vsftpd
+
+# Check the status of the service
+sudo systemctl status vsftpd
+
+sudo apt remove vsftpd
+```
+
+---

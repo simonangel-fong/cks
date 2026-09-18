@@ -6,7 +6,7 @@
   - [`ImagePolicyWebhook` Admission controllers](#imagepolicywebhook-admission-controllers)
     - [How It Works](#how-it-works)
     - [Sample](#sample)
-  - [Lab: `ImagePolicyWebhook` Admission controllers (SKip)](#lab-imagepolicywebhook-admission-controllers-skip)
+  - [Lab: `ImagePolicyWebhook` Admission controllers](#lab-imagepolicywebhook-admission-controllers)
     - [Pre-Requisite](#pre-requisite)
     - [Configure Webhook](#configure-webhook)
     - [Configure API Server](#configure-api-server)
@@ -55,7 +55,7 @@ plugins:
 
 ---
 
-## Lab: `ImagePolicyWebhook` Admission controllers (SKip)
+## Lab: `ImagePolicyWebhook` Admission controllers
 
 - ref: https://kubernetes.io/docs/reference/access-authn-authz/admission-controllers/
 
@@ -130,21 +130,6 @@ sudo netstat -ntlp | grep 8080
 
 ### Configure API Server
 
-```yaml
-# sudo nano /etc/kubernetes/pki/admission-config.yaml
-apiVersion: apiserver.config.k8s.io/v1
-kind: AdmissionConfiguration
-plugins:
-  - name: ImagePolicyWebhook
-    configuration:
-      imagePolicy:
-        kubeConfigFile: "/etc/kubernetes/pki/webhook-kubeconfig"
-        allowTTL: 50
-        denyTTL: 50
-        retryBackoff: 500
-        defaultAllow: false
-```
-
 ```conf
 # sudo nano /etc/kubernetes/pki/webhook-kubeconfig
 apiVersion: v1
@@ -158,6 +143,21 @@ contexts:
     cluster: webhook
   name: webhook-context
 current-context: webhook-context
+```
+
+```yaml
+# sudo nano /etc/kubernetes/pki/admission-config.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: ImagePolicyWebhook
+    configuration:
+      imagePolicy:
+        kubeConfigFile: "/etc/kubernetes/pki/webhook-kubeconfig"
+        allowTTL: 50
+        denyTTL: 50
+        retryBackoff: 500
+        defaultAllow: false
 ```
 
 ### Enable Admission Controller Plugins

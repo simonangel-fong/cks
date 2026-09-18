@@ -87,6 +87,8 @@ echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gviso
 # Install runsc
 sudo apt-get update && sudo apt-get install -y runsc
 
+runsc --version
+
 # #####################
 # Configure Containerd
 # #####################
