@@ -20,6 +20,15 @@
 
 - ref: https://kubernetes.io/docs/concepts/containers/runtime-class/
 
+- task:
+  - existing CIS runtime onfig: /etc/containerd/config.toml
+  - create runtime class named `gvisor` for `runsc`
+  - create a pod named `pod-sandbox` using `nginx` image and `gvisor` runtime
+
+---
+
+- solution:
+
 ```sh
 # get containerd config: default handler=runc; sanbox handler=runsc
 cat /etc/containerd/config.toml
@@ -54,16 +63,12 @@ k get runtimeclass
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    run: pod-sandbox
   name: pod-sandbox
 spec:
   runtimeClassName: gvisor
   containers:
     - name: pod-sandbox
       image: nginx
-      ports:
-        - containerPort: 80
 ```
 
 ```sh
@@ -71,6 +76,9 @@ k apply -f pod-sandbox.yaml
 k get po
 # NAME          READY   STATUS    RESTARTS   AGE
 # pod-sandbox   1/1     Running   0          12m
+
+kubectl describe pod/pod-sandbox | grep gvisor
+# Runtime Class Name:  gvisor
 
 # confirm
 k exec pod-sandbox -- dmesg

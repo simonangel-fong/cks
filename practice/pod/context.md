@@ -1,125 +1,144 @@
-# Practices - Security Context
+# Practices - Pod Security Context
 
 [Back](../../README.md)
 
-- [Practices - Security Context](#practices---security-context)
-  - [pod: Non-Root User](#pod-non-root-user)
-  - [pod: user id \& group id](#pod-user-id--group-id)
-  - [pod: Pod with least privileges](#pod-pod-with-least-privileges)
-  - [root file system](#root-file-system)
-  - [debug nginx fs](#debug-nginx-fs)
-  - [Context: Make the container immutable](#context-make-the-container-immutable)
+- [Practices - Pod Security Context](#practices---pod-security-context)
+  - [Security Context: Non-Root User](#security-context-non-root-user)
+  - [Security Context: User id \& Group id](#security-context-user-id--group-id)
+  - [Security Context: Least privileges](#security-context-least-privileges)
+  - [Security Context: Read only root file system](#security-context-read-only-root-file-system)
+  - [Security Context: Make the container immutable](#security-context-make-the-container-immutable)
 
 ---
 
 - Security Context
   - Privileged Pods, Capabilities, readOnlyRootFilesystem (immutability)
 
-## pod: Non-Root User
+## Security Context: Non-Root User
 
 - task:
-  - create a pod named `web-app` and run as non-root user
+  - create a pod
+    - named `web-app`
+    - image: `bitnami/nginx`
+    - run as non-root user
 
 - solution
 
 ```yaml
-# vi non-root-po.yaml
+# vi nonroot.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  labels:
-    run: web-app
   name: web-app
 spec:
   containers:
     - name: web-app
       image: bitnami/nginx
-  securityContext:
-    runAsNonRoot: true
+      securityContext:
+        runAsNonRoot: true
 ```
 
 ```sh
-k apply -f non-root-po.yaml
+k apply -f nonroot.yaml
+kubectl get po
+# NAME      READY   STATUS    RESTARTS   AGE
+# web-app   1/1     Running   0          86s
+
+kubectl exec -it web-app -- id
+# uid=1001 gid=0(root) groups=0(root)
 ```
 
 ---
 
-## pod: user id & group id
+## Security Context: User id & Group id
 
 - task:
-  - create po named `pod-user-id`:
-    - user id = 1000
-    - group id = 1000
-    - label: `app: pod-user-id`
+  - create po named `user-id`:
+    - user id = 2000
+    - group id = 2000
+    - label: `app: user-id`
 
 - solution:
 
 ```yaml
-# vi pod-user-id.yaml
+# vi user-id.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod-user-id
+  name: user-id
   labels:
-    app: pod-user-id
+    app: user-id
 spec:
-  containers:
-    - image: busybox
-      name: pod-user-id
-      command: ["sh", "-c", "sleep 1d"]
   securityContext:
-    runAsUser: 1000
-    runAsGroup: 1000
+    runAsUser: 2000
+    runAsGroup: 2000
+  containers:
+    - name: user-id
+      image: busybox:1.28
+      command: ["sh", "-c", "sleep 1h"]
 ```
 
 ```sh
-k apply -f pod-user-id.yaml
-k exec -it pod-user-id -- id
-# uid=1000 gid=1000 groups=1000
+kubectl apply -f user-id.yaml
+kubectl exec -it user-id -- id
+# uid=2000 gid=2000 groups=2000
 ```
 
 ---
 
-## pod: Pod with least privileges
+## Security Context: Least privileges
 
 - task:
-  - create a pod named `pod-least-privilege`
+  - create a pod named `least-privilege`
+    - iamge: busybox
+    - user id: 2000
+    - group id: 2000
+    - non root user: true
+    - Escalation: false
+    - privileged: false
+    - drop all capabilities
 
 - solution:
 
 ```yaml
-# vi pod-least-privilege.yaml
+# vi least-permission.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod-least-privilege
+  name: least-privilege
 spec:
   containers:
-    - name: pod-least-privilege
+    - name: least-privilege
       image: busybox:1.28
-      command: ["sh", "-c", "sleep 1d"]
+      command: ["sh", "-c", "sleep 1h"]
       securityContext:
         allowPrivilegeEscalation: false
+        runAsNonRoot: true
         privileged: false
+        runAsUser: 2000
+        runAsGroup: 2000
+        capabilities:
+          drop:
+            - ALL
 ```
 
 ```sh
-k apply -f pod-least-privilege.yaml
+k apply -f least-permission.yaml
 
 # test
-k exec -it pod-least-privilege -- sudo apt update
-# error: Internal error occurred: Internal error occurred: error executing command in container: failed to exec in container: failed to start exec "42e054dd20abcdcb202a15bc056d1fc16cb8842dcb2f3289b5341cc0b51ae45e": OCI runtime exec failed: exec failed: unable to start container process: exec: "sudo": executable file not found in $PATH
+kubectl exec -it least-privilege -- id
+# uid=2000 gid=2000 groups=2000
+
 ```
 
 > least privileges: `allowPrivilegeEscalation`, `privileged`, `runAsNonRoot`, dropped `capabilities`
 
 ---
 
-## root file system
+## Security Context: Read only root file system
 
 - task:
-  - create a pod named `pod-ro` in ns `sun` with image `busybox`
-  - `sleep 1d`
+  - create a pod named `rofs` with image `busybox` command `sleep 1d`
   - root fs should be read-only
 
 ---
@@ -127,157 +146,115 @@ k exec -it pod-least-privilege -- sudo apt update
 - solution
 
 ```yaml
-# vi root-fs.yaml
+# vi rofs.yaml
 apiVersion: v1
 kind: Pod
 metadata:
-  name: pod-ro
-  namespace: sun
+  name: rofs
 spec:
   containers:
-    - name: pod-ro
-      image: busybox
+    - name: rofs
+      image: busybox:1.28
       command: ["sh", "-c", "sleep 1d"]
       securityContext:
         readOnlyRootFilesystem: true
 ```
 
 ```sh
-k create ns sun
-k apply -f root-fs.yaml
+k apply -f rofs.yaml
 
 # confirm
-k describe pod pod-ro -n sun
+k get pod
+# NAME   READY   STATUS    RESTARTS   AGE
+# rofs   1/1     Running   0          2m7s
 
-k exec -it pod-ro -n sun -- touch /tmp/test.txt
-# touch: /tmp/test.txt: Read-only file system
+kubectl exec -it rofs -- touch /tmp/text.txt
+# touch: /tmp/text.txt: Read-only file system
 # command terminated with exit code 1
 ```
 
 ---
 
-## debug nginx fs
+## Security Context: Make the container immutable
 
 - task:
-  - deploy `web4.0` in ns `moon` does not work with `readOnlyRootFilesystem`
-  - add an emptyDir volume
-
----
+  - deploy `rofs` in `moon` ns does not work with `readOnlyRootFilesystem`
+  - fix it
+  - hint: nginx need to write /var/cache/nginx and /var/run
 
 - setup env:
 
-```sh
-k create ns moon
-cat <<EOF | kubectl apply -f -
+```yaml
+# vi nginx-ro.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: web4.0
+  name: nginx-ro
   namespace: moon
 spec:
-  replicas: 2
   selector:
     matchLabels:
-      app: web4.0
+      app: nginx-ro
   template:
     metadata:
       labels:
-        app: web4.0
+        app: nginx-ro
     spec:
       containers:
-        - name: web
+        - name: nginx-ro
           image: nginx
           securityContext:
             readOnlyRootFilesystem: true
-EOF
-
-# confirm fail
-k get po -n moon
-# NAME                      READY   STATUS   RESTARTS      AGE
-# web4.0-567f9979d9-57j82   0/1     Error    2 (26s ago)   29s
-# web4.0-567f9979d9-cgmjm   0/1     Error    2 (26s ago)   29s
 ```
-
----
-
-- solution
 
 ```sh
-# confirm
-k get po -n moon
-# NAME                      READY   STATUS   RESTARTS      AGE
-# web4.0-567f9979d9-57j82   0/1     Error    2 (26s ago)   29s
-# web4.0-567f9979d9-cgmjm   0/1     Error    2 (26s ago)   29s
-
-# diagnose
-k describe po web4.0-567f9979d9-cgmjm -n moon
-#   Warning  BackOff    39s (x5 over 2m8s)   kubelet            spec.containers{web}: Back-off restarting failed container web in pod web4.0-567f9979d9-cgmjm_moon(03ab6f21-5dbd-4c44-a37c-749f3ecf16ad)
-
-# find the error: cannot create /etc/data.log: read-only file system
-k logs web4.0-567f9979d9-cgmjm -n moon
-
-
-k get deploy web4.0 -n moon -o yaml > web4.0.yaml
-
-vi web4.0.yaml
-# spec:
-#     spec:
-#       volumes:
-#       - name: temp
-#         emptyDir: {}
-#       containers:
-#       - image: nginx
-#         name: nginx
-#         securityContext:
-#           readOnlyRootFilesystem: true
-#         volumeMounts:
-#           - name: temp
-#             mountPath: /etc
-
-kubectl replace --force -f web4.0.yaml
-
-kubectl rollout restart deploy web4.0 -n moon
-
-# confirm
+kubectl apply -f nginx-ro.yaml
 kubectl get po -n moon
+# NAME                        READY   STATUS   RESTARTS      AGE
+# nginx-ro-67f6788fdf-tvnd2   0/1     Error    2 (25s ago)   28s
 ```
 
 ---
 
-## Context: Make the container immutable
+- solution:
 
 ```yaml
-# Create a Pod with ReadOnlyRooFileSystem security context
-apiVersion: v1
-kind: Pod
+# vi nginx-ro.yaml
+apiVersion: apps/v1
+kind: Deployment
 metadata:
-  labels:
-    run: immutable-pod
-  name: immutable-pod
+  name: nginx-ro
+  namespace: moon
 spec:
-  containers:
-    - image: nginx
-      name: immutable-pod
-      securityContext:
-        readOnlyRootFilesystem: true
+  selector:
+    matchLabels:
+      app: nginx-ro
+  template:
+    metadata:
+      labels:
+        app: nginx-ro
+    spec:
+      containers:
+        - name: nginx-ro
+          image: nginx
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: cache-volume
+              mountPath: /var/cache/nginx
+            - name: runtime-volume
+              mountPath: /var/run
+      volumes:
+        - name: cache-volume
+          emptyDir: {}
+        - name: runtime-volume
+          emptyDir: {}
 ```
 
-```yaml
-# vi pod-immutable-fs.yaml
-apiVersion: v1
-kind: Pod
-metadata:
-  name: nginx
-spec:
-  containers:
-    - name: nginx
-      image: nginx:1.21.6
-      securityContext:
-        readOnlyRootFilesystem: true
-      volumeMounts:
-        - name: nginx-run
-          mountPath: /var/cache
-  volumes:
-    - name: nginx-run
-      emptyDir: {}
+```sh
+kubectl apply -f nginx-ro.yaml
+
+kubectl get po -n moon
+# NAME                       READY   STATUS    RESTARTS   AGE
+# nginx-ro-c6b6db6b7-bn56z   1/1     Running   0          9s
 ```
