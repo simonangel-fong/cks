@@ -8,6 +8,7 @@
   - [Security Context: Least privileges](#security-context-least-privileges)
   - [Security Context: Read only root file system](#security-context-read-only-root-file-system)
   - [Security Context: Make the container immutable](#security-context-make-the-container-immutable)
+  - [Security Context: readonlyfile(killer A)](#security-context-readonlyfilekiller-a)
 
 ---
 
@@ -258,3 +259,104 @@ kubectl get po -n moon
 # NAME                       READY   STATUS    RESTARTS   AGE
 # nginx-ro-c6b6db6b7-bn56z   1/1     Running   0          9s
 ```
+
+---
+
+## Security Context: readonlyfile(killer A)
+
+- task:
+  - The Deployment `immutable-deployment` in Namespace `team-purple` should run immutable. It's created from file `/course/6/immutable-deployment.yaml`. Even after a successful break-in, it shouldn't be possible for an attacker to modify the filesystem of the running container.
+  - Modify the Deployment in a way that no processes inside the container can modify the local filesystem, only the `/tmp` directory should be writable. Don't modify the Docker image.
+  - Save the updated YAML under `/course/6/immutable-deployment-new.yaml` and update the running Deployment.
+
+---
+
+- setup env
+
+```yaml
+# /course/6/immutable-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: team-purple
+  name: immutable-deployment
+  labels:
+    app: immutable-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immutable-deployment
+  template:
+    metadata:
+      labels:
+        app: immutable-deployment
+    spec:
+      restartPolicy: Always
+      containers:
+        - image: busybox:1
+          command: ["sh", "-c", "tail -f /dev/null"]
+          imagePullPolicy: IfNotPresent
+          name: busybox
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+```
+
+---
+
+- solution
+
+```yaml
+# vi /course/6/immutable-deployment-new.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  namespace: team-purple
+  name: immutable-deployment
+  labels:
+    app: immutable-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: immutable-deployment
+  template:
+    metadata:
+      labels:
+        app: immutable-deployment
+    spec:
+      restartPolicy: Always
+      containers:
+        - name: busybox
+          image: busybox:1
+          command: ["sh", "-c", "tail -f /dev/null"]
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              cpu: 20m
+              memory: 20Mi
+          # add
+          securityContext:
+            readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir: {}
+```
+
+```sh
+cp /course/6/immutable-deployment.yaml /course/6/immutable-deployment-new.yaml
+
+kubectl apply -f /course/6/immutable-deployment-new.yaml
+kubectl rollout status deployment/immutable-deployment -n team-purple
+
+# confirm
+kubectl exec -n team-purple deploy/immutable-deployment -- touch /tmp/test
+kubectl exec -n team-purple deploy/immutable-deployment -- touch /test
+```
+
+---

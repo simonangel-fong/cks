@@ -1,9 +1,10 @@
 # Practices - Benchmark
 
-[Back](../README.md)
+[Back](../../README.md)
 
 - [Practices - Benchmark](#practices---benchmark)
   - [CIS Benchmark fix controlplane](#cis-benchmark-fix-controlplane)
+  - [kube-bench: cluster(killer A)](#kube-bench-clusterkiller-a)
 
 ---
 
@@ -100,4 +101,68 @@ sudo kube-bench run --targets master -c 1.2.15
 sudo crictl rm -f $(sudo crictl ps -q --name kube-apiserver)
 
 sudo journalctl -u kubelet --since '10 min ago' | tail -50
+```
+
+---
+
+## kube-bench: cluster(killer A)
+
+- task:
+- You're asked to evaluate specific settings of the cluster against the CIS Benchmark recommendations. Use the kube-bench tool which is already installed on the nodes.
+  - Connect to the worker node from controlplane `ssh node01`
+  - On the controlplane node ensure (correct if necessary) that the CIS recommendations are set for:
+    - The `--profiling` argument of the `kube-controller-manager`
+    - The ownership of directory `/var/lib/etcd`
+  - On the worker node ensure (correct if necessary) that the CIS recommendations are set for:
+    - The permissions of the kubelet configuration `/var/lib/kubelet/config.yaml`
+    - The `--client-ca-file` argument of the `kubelet`
+
+---
+
+- solution
+
+```sh
+sudo -i
+# controlplane
+kube-bench run --targets master > cis0
+
+vi cis0
+# find
+# --profiling=false, kube-controller-manager
+# /var/lib/etcd
+
+# fix
+vi /etc/kubernetes/manifests/kube-controller-manager.yaml
+# - --profiling=false
+# fix
+chown etcd:etcd /var/lib/etcd
+
+# confirm
+kube-bench run --targets master > cis1
+vi cis1
+# previous warning no found
+
+
+ssh node01
+sudo -i
+
+kube-bench run --targets node > cis0
+vi cis0
+# find
+# /var/lib/kubelet/config.yaml
+# --client-ca-file
+
+# fix
+chmod 600 /var/lib/kubelet/config.yaml
+vi /var/lib/kubelet/config.yaml
+# authentication:
+#   x509:
+#     clientCAFile: /etc/kubernetes/pki/ca.crt
+
+systemctl restart kubelet
+systemctl status kubelet
+
+kube-bench run --targets node > cis1
+vi cis1
+# no found preivous warning
 ```

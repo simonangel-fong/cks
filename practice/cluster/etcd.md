@@ -1,15 +1,23 @@
-# Practices - Etcd
+# Practices - `etcd`
 
-[Back](../README.md)
+[Back](../../README.md)
 
-- [Practices - Etcd](#practices---etcd)
-  - [Etcd: encrypted at rest](#etcd-encrypted-at-rest)
+- [Practices - `etcd`](#practices---etcd)
+  - [`etcd`: encrypted at rest](#etcd-encrypted-at-rest)
+  - [etcd: encrypted at rest(killer A)](#etcd-encrypted-at-restkiller-a)
 
 ---
 
-## Etcd: encrypted at rest
+## `etcd`: encrypted at rest
 
 - ref: https://kubernetes.io/docs/tasks/administer-cluster/encrypt-data/#encrypting-your-data
+
+- task:
+  - encrypt the `etcd` at rest
+
+---
+
+- solution:
 
 ```sh
 # Generate the encryption key
@@ -61,4 +69,40 @@ ETCDCTL_API=3 etcdctl \
    --cert=/etc/kubernetes/pki/etcd/server.crt \
    --key=/etc/kubernetes/pki/etcd/server.key  \
    get /registry/secrets/default/secret1 | hexdump -C
+```
+
+---
+
+## etcd: encrypted at rest(killer A)
+
+- task:
+  - An internal security audit requires secrets in the cluster to be encrypted. The team already created the needed EncryptionConfiguration at `/etc/kubernetes/etcd/ec.yaml`.
+  - The Apiserver should mount `/etc/kubernetes/etcd` on the host to `/etc/kubernetes/etcd` inside the container
+  - The Apiserver should use the EncryptionConfiguration from `/etc/kubernetes/etcd/ec.yaml` inside the container
+  - All Secrets in Namespace team-magenta should be stored encrypted in ETCD
+
+---
+
+- solution:
+
+```sh
+sudo -i
+
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+#  - --encryption-provider-config=/etc/kubernetes/etcd/ec.yaml
+
+#     volumeMounts:
+#     - name: enc
+#       mountPath: /etc/kubernetes/etcd
+#       readOnly: true
+#   volumes:
+#   - name: enc
+#     hostPath:
+#       path: /etc/kubernetes/etcd
+#       type: DirectoryOrCreate
+
+# confimr apiserver
+crictl ps | grep apiserver
+
+kubectl get secrets --all-namespaces -o json | kubectl replace -f -
 ```

@@ -1,6 +1,12 @@
+# Practices - RBAC
 
+[Back](../../README.md)
 
+- [Practices - RBAC](#practices---rbac)
+  - [Issue a Certificate for a Kubernetes API Client](#issue-a-certificate-for-a-kubernetes-api-client)
+  - [RBAC(killer A)](#rbackiller-a)
 
+---
 
 ## Issue a Certificate for a Kubernetes API Client
 
@@ -13,22 +19,13 @@
   - create RBAC for user `bob`
   - confirm permission for `bob`
 
-- tip:
-
-```sh
-openssl genrsa -out XXX 2048
-openssl req -new -key XXX
-openssl x509 -req -in XXX -CA XXX -CAkey XXX -CAcreateserial -out XXX -days 365
-openssl x509 -in XXX -noout -text
-```
-
 ---
 
 - solution
 
 ```sh
-# create private key
-openssl genrsa -out bob.key 2048
+# Create a private key
+openssl genrsa -out bob.key 3072
 # create csr
 openssl req -new -key bob.key -out bob.csr -subj "/CN=bob/O=developer"
 
@@ -125,4 +122,47 @@ kubectl get po -n app
 # web    1/1     Running   0          19s
 kubectl delete po web -n app
 # Error from server (Forbidden): pods "web" is forbidden: User "bob" cannot delete resource "pods" in API group "" in the namespace "app"
+```
+
+---
+
+## RBAC(killer A)
+
+Solve this question on: ssh cks3477
+
+- task:
+  - You're asked to implement some RBAC for user `gianna`:
+    - There are existing cluster-level RBAC resources in place to, among other things, ensure that user `gianna` can never **read** Secret contents **cluster-wide**. Confirm this is correct or restrict the existing RBAC resources to ensure this.
+    - In addition, create more RBAC resources to allow user `gianna` to **create** `Pods` and `Deployments` in Namespaces `security`, restricted and internal. It's likely the user will receive these exact permissions as well for other Namespaces in the future.
+  - To test your RBAC you can:
+    - Switch to the other context with:
+
+    ```sh
+    k config use-context gianna@infra-prod
+    ```
+
+  - And afterwards switch back to the default context with:
+
+    ```sh
+    k config use-context kubernetes-admin@kubernetes
+    ```
+
+---
+
+- solution:
+
+```sh
+# confirm
+kubectl edit clusterrole gianna
+# remove
+# - secrets
+kubectl auth can-i get secrets -A --as=gianna
+kubectl auth can-i list secrets -A --as=gianna
+kubectl auth can-i watch secrets -A --as=gianna
+
+k create clusterrole gianna-additional --verb=create --resource=pods --resource=deployments
+
+k -n security create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
+k -n restricted create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
+k -n internal create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
 ```

@@ -4,6 +4,8 @@
 
 - [Practices - Daemon](#practices---daemon)
   - [Daemon: Container Runtime sandboxed](#daemon-container-runtime-sandboxed)
+  - [Docker: config(killer A)](#docker-configkiller-a)
+  - [Sandbox (killer A)](#sandbox-killer-a)
 
 ---
 
@@ -94,4 +96,110 @@ k exec pod-sandbox -- dmesg
 # [    3.081893] Segmenting fault lines...
 # [    3.134610] Rewriting the kernel in Rust...
 # [    3.534428] Ready!
+```
+
+---
+
+## Docker: config(killer A)
+
+- task
+  - Docker containers should run more isolated from each other by disabling inter-container communication.
+  - Add `"icc": false` to the Docker config and ensure the Docker daemon is using the updated settings
+  - Create two Docker containers named container1 and container2 which should
+    - have image `nginx:1-alpine`
+    - restart always
+    - keep running in the background
+  - As a result, the containers should not be able to ping each other on their IP addresses.
+
+ℹ️ Run all Docker commands as root. Use sudo -i to become root
+
+---
+
+- solution
+
+```sh
+sudo -i
+
+mkdir -p /etc/docker
+vi /etc/docker/daemon.json
+# add
+# {"icc": false},
+
+systemctl restart docker
+systemctl is-active docker
+
+# confirm
+docker network inspect bridge | grep enable_icc
+
+docker run -d --name container1 --restart always nginx:1-alpine
+docker run -d --name container2 --restart always nginx:1-alpine
+
+# confirm
+docker ps
+
+# get ip
+docker inspect container2
+ssh cks4024
+docker exec container1 ping -c 3 -W 1 "<container2_ip>
+```
+
+---
+
+## Sandbox (killer A)
+
+- task:
+  - Team purple wants to run some of their workloads more securely. Worker node node01 is already configured so that containerd supports the `runsc/gvisor` runtime.
+  - Connect to the worker node using ssh node01
+  - Create a RuntimeClass named `gvisor` with handler `runsc`
+  - Create a Pod that uses the RuntimeClass. The Pod should be in Namespace `team-purple`, named `gvisor-test` and of image `nginx:1-alpine`
+  - Ensure the Pod only ever runs on a node named node01
+  - Write the output of the `dmesg` command of the successfully started Pod into `/course/10/gvisor-test-dmesg`
+
+---
+
+- solution
+
+```yaml
+# vi rc.yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: gvisor
+handler: runsc
+```
+
+```sh
+# create runtimeclass
+k apply -f rc.yaml
+k get runtimeclass
+
+# create po
+k run gvisor-test -n team-purple --image=nginx:1-alpine --dry-run=client -o yaml > pod.yaml
+
+vi pod.yaml
+```
+
+```yaml
+# vi pod.yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gvisor-test
+  namespace: team-purple
+spec:
+  runtimeClassName: gvisor
+  nodeName: node01
+  containers:
+    - name: gvisor-test
+      image: nginx:1-alpine
+```
+
+```sh
+k apply -f pod.yaml
+k get po -n team-purple  -o wide
+
+k exec -it gvisor-test -- dmesg > /course/10/gvisor-test-dmesg
+
+# confirm
+cat /course/10/gvisor-test-dmesg
 ```

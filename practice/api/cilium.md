@@ -1,10 +1,10 @@
 # Practices - Cilium
 
-[Back](../README.md)
+[Back](../../README.md)
 
 - [Practices - Cilium](#practices---cilium)
   - [Cilium NP](#cilium-np)
-  - [Entity](#entity)
+  - [Cilium(killer A)](#ciliumkiller-a)
 
 ---
 
@@ -115,4 +115,49 @@ endpointSelector:
 
 ```
 
-## Entity
+## Cilium(killer A)
+
+- task:
+  - There is a metadata service available at `http://192.168.100.21:9055` through which nodes can access sensitive data. Access to this needs to be restricted from Pods.
+  - In Namespace `metadata-access` create a CiliumNetworkPolicy named `default` to:
+    - Allow egress to 0.0.0.0/0
+    - Allow egress to Endpoints in the same Namespace
+    - Allow egress to Endpoints in the kube-system Namespace (this covers DNS resolution)
+    - Deny egress to 192.168.100.21 on port 9055
+  - ℹ️ There are existing plain Nginx Pods with open port 80 in the Namespace which can be used for testing but need to remain unchanged. - Perform simple connectivity tests like:
+  - `k -n metadata-access exec POD_NAME -- curl URL`
+
+---
+
+- solution:
+
+```yaml
+# cnp.yaml
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: default
+  namespace: metadata-access
+spec:
+  endpointSelector: {}
+
+  egress:
+    # Allow egress to 0.0.0.0/0
+    - toEntities:
+        - world
+    # Allow egress to Endpoints in the same Namespace
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: metadata-access
+    # Allow egress to Endpoints in the kube-system Namespace
+    - toEndpoints:
+        - matchLabels:
+            k8s:io.kubernetes.pod.namespace: kube-system
+  # Deny egress to 192.168.100.21 on port 9055
+  egressDeny:
+  - toCIDR:
+    - 192.168.100.21/32
+      toPorts:
+        - ports:
+            - port: "9055"
+```

@@ -99,37 +99,36 @@
 
 - pod
   - [Image](./practice/pod/image.md)
-  - [Daemon](./practice/pod/daemon.md)
+  - [Daemon & runtime](./practice/pod/daemon.md)
   - [Security Context](./practice/pod/context.md)
   - [AppArmor](./practice/pod/apparmor.md)
-  - [RBAC](./practice/rbac.md)
-  - [sa](./practice/sa.md)
+  - [RBAC](./practice/pod/rbac.md)
+  - [Service Account](./practice/pod/sa.md)
 - Cluster
-  - [node](./practice/node.md)
-  - [upgrade](./practice/upgrade.md)
-  - [verify binaries](./practice/binary.md)
-  - [etcd](./practice/etcd.md)
-  - [Admission controller](./practice/admission.md)
-  - [kubeadm](./practice/kubeadm.md)
+  - [Upgrade](./practice/cluster/upgrade.md)
+  - [Binaries & apiserver](./practice/cluster/binary.md)
+  - [Node & kubeconfig](./practice/cluster/node.md)
+  - [`etcd`](./practice/cluster/etcd.md)
+  - [Admission Controller](./practice/cluster/admission.md)
 - api resources
-  - [secret](./practice/secret.md)
-  - [Nework Policy](./practice/net_pol.md)
-  - [Ingress](./practice/ingress.md)
-  - [(need doc read)Cilium](./practice/cilium.md)
-  - [Istio](./practice/istio.md)
+  - [Secret](./practice/api/secret.md)
+  - [Nework Policy](./practice/api/net_pol.md)
+  - [Ingress](./practice/api/ingress.md)
+  - [Cilium](./practice/api/cilium.md)
+  - [Istio](./practice/api/istio.md)
 - Scan
-  - [bom](./practice/bom.md)
-  - [CIS benchmark](./practice/benchmark.md)
-  - [static analysis](./practice/static.md)
+  - [bom](./practice/scan/bom.md)
+  - [CIS benchmark](./practice/scan/benchmark.md)
+  - [static analysis](./practice/scan/static.md)
 - Monitoring
-  - [\*falco](./practice/falco.md)
-  - [audit](./practice/audit.md)
+  - [falco](./practice/monitoring/falco.md)
+  - [audit](./practice/monitoring/audit.md)
 
 ---
 
-[x] https://github.com/techiescamp/cks-certification-guide
 [ ] https://github.com/SebastianUA/Certified-Kubernetes-Security-Specialist
-[x] https://github.com/zealvora/certified-kubernetes-security-specialist
+
+[ ] https://github.com/walidshaari/Certified-Kubernetes-Security-Specialist
 
 - youtube question
   - [ ] https://www.youtube.com/watch?v=Jd_j2wruz6E&list=PLpbwBK0ptssx38770vYNwZEuCeGNw54CH

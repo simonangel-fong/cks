@@ -1,9 +1,10 @@
 # Practices - Pod Security Context AppArmor
 
-[Back](../README.md)
+[Back](../../README.md)
 
 - [Practices - Pod Security Context AppArmor](#practices---pod-security-context-apparmor)
   - [Pod Security Context: AppArmor](#pod-security-context-apparmor)
+  - [AppArmor (killer A)](#apparmor-killer-a)
 
 ---
 
@@ -97,4 +98,82 @@ kubectl get po
 kubectl exec apparmor-79fc79dc45-8dqvd -- touch /tmp/test
 # touch: /tmp/test: Permission denied
 # command terminated with exit code 1
+```
+
+---
+
+## AppArmor (killer A)
+
+- task:
+  - Some containers need to run more securely. There is an existing AppArmor profile located at `/course/9/profile` on cks7262 for this.
+  - Install the AppArmor profile on node node01.
+  - Connect using ssh node1 from controlplane
+  - Add label `security=apparmor` to the node
+  - Create a Deployment named `apparmor` in Namespace `default` with:
+    - One replica of image `nginx:1-alpine`
+    - NodeSelector for `security=apparmor`
+    - Single container named `c1` with the `AppArmor` profile enabled only for this container
+  - The Pod might not run properly with the profile enabled. Write the logs of the Pod into `/course/9/logs` on controlplane so another team can work on getting the application running.
+
+ℹ️ Use sudo -i to become root which may be required for this question
+
+---
+
+- solution
+
+```sh
+# node01
+ssh node01
+# create aa profile
+vi /etc/apparmor.d/course-9-profile
+apparmor_parser -r /etc/apparmor.d/course-9-profile
+
+aa-status | grep '<profile-name>'
+
+# controlplane
+# label
+kubectl label node node01 security=apparmor --overwrite
+# confirm
+kubectl get node node01 --show-labels
+
+# create deploy
+k create deploy apparmor -n default --image=nginx:1-alpine --dry-run=client -o yaml > aa.yaml
+```
+
+```yaml
+# vi aa.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: apparmor
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: apparmor
+  template:
+    metadata:
+      labels:
+        app: apparmor
+    spec:
+      nodeSelector:
+        security: apparmor
+      containers:
+        - name: c1
+          image: nginx:1-alpine
+          securityContext:
+            appArmorProfile:
+              type: Localhost
+              localhostProfile: <profile-name>
+```
+
+```sh
+kubectl apply -f aa.yaml
+kubectl get pods -o wide
+
+kubectl logs -l app=apparmor --all-containers > /course/9/logs
+
+# confirm
+cat /course/9/logs
 ```

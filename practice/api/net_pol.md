@@ -1,12 +1,12 @@
 # Practices - Network policy
 
-[Back](../README.md)
+[Back](../../README.md)
 
 - [Practices - Network policy](#practices---network-policy)
   - [ref](#ref)
   - [NP: deny all](#np-deny-all)
   - [NP: ip block](#np-ip-block)
-  - [NP: ns](#np-ns)
+  - [NP: net pol](#np-net-pol)
 
 ---
 
@@ -99,7 +99,7 @@ ping -c2 192.168.10.150 # block
 
 ---
 
-## NP: ns
+## NP: net pol
 
 - task
   - create `beta` ns, create deployment in `beta` ns with name `beta-web` and iamge `nginx:latest`, replicas =2, container name = `web`, container port = `80`

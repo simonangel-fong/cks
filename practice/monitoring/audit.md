@@ -1,10 +1,11 @@
 # Practices - audit
 
-[Back](../README.md)
+[Back](../../README.md)
 
 - [Practices - audit](#practices---audit)
   - [Audit: Secret](#audit-secret)
-  - [Audit: pod](#audit-pod)
+  - [Audit: Pod](#audit-pod)
+  - [Audit(killer A)](#auditkiller-a)
 
 ---
 
@@ -95,7 +96,7 @@ sudo tail /etc/kubernetes/audit-logs/audit.log -f
 
 ```
 
-## Audit: pod
+## Audit: Pod
 
 - task:
   - enable audit
@@ -151,3 +152,66 @@ sudo vi /etc/kubernetes/manifests/kube-apiserver.yaml
 #       type: DirectoryOrCreate
 
 ```
+
+---
+
+## Audit(killer A)
+
+- task:
+  - Audit Logging has been enabled in the cluster with an Audit Policy located at `/etc/kubernetes/audit/policy.yaml`.
+  - Change the apiserver setting so that only **one** backup of the logs is stored.
+  - Alter the Policy so that it only stores logs:
+    - From `Secret` resources, level `Metadata`
+    - From `"system:nodes`" userGroups, level `RequestResponse`
+    - After you update the Policy, make sure to empty the log file so it only contains entries according to your changes, for example using `echo > /etc/kubernetes/audit/logs/audit.log`.
+  - ℹ️ You can use yq to render JSON in a more readable form, for example cat data.json | yq -p json -o json
+  - ℹ️ Use sudo -i to become root which may be required for this question
+
+---
+
+- solution:
+
+```yaml
+# /etc/kubernetes/audit/policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+rules:
+  # log Secret resources audits, level Metadata
+  - level: Metadata
+    resources:
+      - group: ""
+        resources: ["secrets"]
+
+  # log node related audits, level RequestResponse
+  - level: RequestResponse
+    userGroups: ["system:nodes"]
+
+  # for everything else don't log anything
+  - level: None
+```
+
+```sh
+sudo -i
+
+cp /etc/kubernetes/manifests/kube-apiserver.yaml \
+   /root/kube-apiserver.yaml.bak
+
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+
+# update apiserver
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --audit-policy-file=/etc/kubernetes/audit/policy.yaml
+# - --audit-log-path=/etc/kubernetes/audit/logs/audit.log
+# - --audit-log-maxbackup=1
+
+# empty log
+echo > /etc/kubernetes/audit/logs/audit.log
+
+# confirm apiserver
+crictl ps | grep apiserver
+
+cat /etc/kubernetes/audit/logs/audit.log
+```
+
+> for everything else don't log anything
+> `- level: None`

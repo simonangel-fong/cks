@@ -9,7 +9,6 @@
   - [Display certificate](#display-certificate)
   - [verify](#verify)
 
-
 ## Create private key
 
 ```sh
@@ -25,7 +24,7 @@ openssl genrsa -out etcd.key 2048
 ## Create csr
 
 ```sh
-openssl req -new -key etcd.key -subj "/CN=etcd" -out etcd.csr -config etcd.cnf
+openssl req -new -key etcd.key -out etcd.csr -config etcd.cnf -subj "/CN=etcd"
 ```
 
 | Parameter        | DSC                                                           |
