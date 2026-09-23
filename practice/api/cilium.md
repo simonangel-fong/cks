@@ -3,15 +3,53 @@
 [Back](../../README.md)
 
 - [Practices - Cilium](#practices---cilium)
+  - [Shortcut](#shortcut)
   - [Cilium NP](#cilium-np)
   - [Cilium(killer A)](#ciliumkiller-a)
+  - [CNP(kill B)](#cnpkill-b)
 
 ---
+
+## Shortcut
 
 - Network Policies + Cilium Network Policies
   - For Cilium Network Policy:
     - Be aware of `ingressDeny` and `egressDeny` block.
     - Be aware of the `Entities` in Cilium Network Policies.
+
+- common config
+
+```yaml
+# select specific label
+endpointSelector:
+  matchLabels:
+    app: frontend
+
+# select all
+endpointSelector:
+  matchLabels: {}
+
+# all in namespace
+- fromEndpoints:
+  - matchLabels:
+    "k8s:io.kubernetes.pod.namespace": backend # ns
+
+# endpoint in ns
+- fromEndpoints:
+  - matchLabels:
+    "k8s:io.kubernetes.pod.namespace": backend # ns
+    app: backend # endpoint
+
+# enable mtls
+- toEndpoints:
+    - matchLabels:
+        type: messenger
+  authentication:
+    mode: "required" # Enable Mutual Authentication
+
+```
+
+---
 
 ## Cilium NP
 
@@ -98,6 +136,11 @@ k exec test -- ping -c2 10.0.1.137
 ---
 
 ```yaml
+# entity
+# Allow egress to 0.0.0.0/0
+- toEntities:
+    - world
+
 # select specific label
 endpointSelector:
   matchLabels:
@@ -107,11 +150,28 @@ endpointSelector:
 endpointSelector:
   matchLabels: {}
 
-# namespace
+# all in namespace
+- fromEndpoints:
+  - matchLabels:
+    "k8s:io.kubernetes.pod.namespace": backend
+
+# endpoint in ns
 - fromEndpoints:
   - matchLabels:
     "k8s:io.kubernetes.pod.namespace": backend
     app: backend
+
+# deny icmp
+egressDeny:
+  - toEndpoints:
+      - matchLabels:
+          type: database
+    icmps:
+      - fields:
+          - type: 8
+            family: IPv4
+          - type: EchoRequest
+            family: IPv6
 
 ```
 
@@ -160,4 +220,83 @@ spec:
       toPorts:
         - ports:
             - port: "9055"
+```
+
+---
+
+## CNP(kill B)
+
+- task:
+  - In Namespace `team-iris` a Default-Allow strategy for all Namespace-internal traffic was chosen. There is an existing CiliumNetworkPolicy `default-allow` which ensures this and which should not be altered. That policy also allows cluster-internal DNS resolution.
+  - Now it's time to deny and authenticate certain traffic. Create 3 CiliumNetworkPolicies in Namespace `team-iris` to implement the following requirements:
+    - Create a Layer 3 policy named `p1` to:
+      - Deny outgoing traffic from Pods with label `type=messenger` to Pods with label `type=database`
+    - Create a Layer 4 policy named `p2` to:
+      - Deny outgoing `ICMP EchoRequest` traffic from Deployment `transmitter` to Pods with label `type=database`
+    - Create a Layer 3 policy named `p3` to:
+      - Enable Mutual Authentication for outgoing traffic from Pods with label `type=database` to Pods with label `type=messenger`
+
+---
+
+- solution:
+- p1
+
+```yaml
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: p1
+  namespace: team-iris
+spec:
+  endpointSelector:
+    matchLabels:
+      type: messenger
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            type: database # we use the label of the Pods behind the Service "database"
+```
+
+- p2
+
+```yaml
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: p2
+  namespace: team-iris
+spec:
+  endpointSelector:
+    matchLabels:
+      type: transmitter
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            type: database
+      icmps:
+        - fields:
+            - type: 8
+              family: IPv4
+            - type: EchoRequest
+              family: IPv6
+```
+
+- p3
+
+```yaml
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: p3
+  namespace: team-iris
+spec:
+  endpointSelector:
+    matchLabels:
+      type: database
+  egress:
+    - toEndpoints:
+        - matchLabels:
+            type: messenger
+      authentication:
+        mode: "required" # Enable Mutual Authentication
 ```

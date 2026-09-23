@@ -3,8 +3,30 @@
 [Back](../../README.md)
 
 - [Practices - RBAC](#practices---rbac)
+  - [Shortcut](#shortcut)
   - [Issue a Certificate for a Kubernetes API Client](#issue-a-certificate-for-a-kubernetes-api-client)
   - [RBAC(killer A)](#rbackiller-a)
+  - [CSR(killer B)](#csrkiller-b)
+
+---
+
+## Shortcut
+
+- Create a KEY
+- Create a CSR for that KEY
+- Create a CRT by signing the CSR using the CA of the cluster
+
+```sh
+# create private key
+openssl genrsa -out server.key 4096
+# create csr
+openssl req -new -key server.key -out server.csr -subj "/CN=mydomain.com/O=MyCompany"
+openssl req -in server.csr -noout -text -verify
+# create crt: self-signed
+openssl x509 -req -in server.csr -signkey server.key -out server.crt -days 365
+openssl x509 -in server.crt -noout -text
+
+```
 
 ---
 
@@ -165,4 +187,90 @@ k create clusterrole gianna-additional --verb=create --resource=pods --resource=
 k -n security create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
 k -n restricted create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
 k -n internal create rolebinding gianna-additional --clusterrole=gianna-additional --user=gianna
+```
+
+---
+
+## CSR(killer B)
+
+- task:
+  - Create and approve the `CertificateSigningRequest` from `/course/9/csr-app-6c63ce3f.yaml`, then download the decoded certificate to `/course/9/app-6c63ce3f.crt`.
+  - Create and deny the `CertificateSigningRequest` from `/course/9/csr-app-dc6fdc2d.yaml`, then store the kubectl describe output from that resource at `/course/9/csr-app-dc6fdc2d.log`.
+  - Using the template below, create a `CertificateSigningRequest` YAML for `/course/9/new.csr` and store it at `/course/9/new.csr.yaml`. The NAME should be the same as the CN subject of the new.csr file.
+
+```txt
+apiVersion: certificates.k8s.io/v1
+kind: CertificateSigningRequest
+metadata:
+  name: {{NAME}}
+spec:
+  groups:
+  - system:authenticated
+  request: {{REQUEST}}
+  signerName: kubernetes.io/kube-apiserver-client
+  usages:
+  - client auth
+```
+
+---
+
+- solution
+
+```sh
+# create csr
+k -f /course/9/csr-app-6c63ce3f.yaml create
+# confirm
+k get csr
+
+# approve
+kubectl certificate approve app-6c63ce3f@users-pro
+# confirm
+k get csr
+
+# get cert
+k get csr app-6c63ce3f@users-pro -ojsonpath="{.status.certificate}" | base64 -d > /course/9/app-6c63ce3f.crt
+
+```
+
+```sh
+# create csr
+k -f /course/9/csr-app-dc6fdc2d.yaml create
+# confirm
+k get csr
+
+# deny
+k certificate deny app-dc6fdc2d@users-base
+# confirm
+k get csr
+
+# write
+k describe csr app-dc6fdc2d@users-base > /course/9/csr-app-dc6fdc2d.log
+
+
+```
+
+```sh
+# read csr
+cat /course/9/new.csr
+
+# get cn, o
+openssl req -in /course/9/new.csr -noout -text
+# Subject: CN = app-c5a95f65@users-company
+
+# encode
+cat /course/9/new.csr | base64 | tr -d "\n"
+
+
+vi /course/9/new.csr.yaml
+# apiVersion: certificates.k8s.io/v1
+# kind: CertificateSigningRequest
+# metadata:
+#   name: app-c5a95f65@users-company
+# spec:
+#   groups:
+#   - system:authenticated
+#   request: encode_csr
+#   signerName: kubernetes.io/kube-apiserver-client
+#   usages:
+#   - client auth
 ```

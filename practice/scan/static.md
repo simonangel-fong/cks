@@ -4,7 +4,8 @@
 
 - [Practices - Static analysis](#practices---static-analysis)
   - [Shortcut](#shortcut)
-  - [Static analysis: security context](#static-analysis-security-context)
+    - [Static analysis: security context](#static-analysis-security-context)
+    - [Dockerfile](#dockerfile)
   - [trivy: root file system](#trivy-root-file-system)
   - [trivy: scan image](#trivy-scan-image)
   - [trivy: scan cluster](#trivy-scan-cluster)
@@ -27,7 +28,7 @@
 
 ---
 
-## Static analysis: security context
+### Static analysis: security context
 
 common Security context options
 
@@ -58,6 +59,40 @@ securityContext:
   - `allowPrivilegeEscalation: true`
   - `capabilities.drop: []`
   - `privileged: true`
+
+common manifest risk:
+
+- `pod.command`: echo sensitive data; it will be kept in logs
+
+  ```yaml
+  command: ["/bin/sh"]
+  args:
+    - "-c"
+    - "echo $SECRET_USERNAME && echo $SECRET_PASSWORD && docker-entrypoint.sh" # NOT GOOD
+  ```
+
+- use plaintext env
+
+  ```yaml
+  env:
+    - name: Username
+      value: Administrator
+    - name: Password
+      value: MyDiReCtP@sSw0rd
+  ```
+
+---
+
+### Dockerfile
+
+common issues:
+
+- include sensitive files in layer, even if it get removed.
+
+  ```txt
+  COPY secret-token .
+  RUN rm ./secret-token # delete secret token again
+  ```
 
 ---
 

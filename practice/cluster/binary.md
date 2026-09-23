@@ -8,6 +8,8 @@
   - [Binary: verify tar file](#binary-verify-tar-file)
   - [Binary: download and checkrum latest `kubectl`](#binary-download-and-checkrum-latest-kubectl)
   - [apiserver: flag(killer A)](#apiserver-flagkiller-a)
+  - [binary(killer B)](#binarykiller-b)
+  - [API Server(killer B)](#api-serverkiller-b)
 
 ---
 
@@ -142,3 +144,61 @@ k get svc -A
 > 1. refer to the flags in documentation, keyword "kube-apiserver"
 > 2. update flag
 > 3. confirm until apiserver rerun.
+
+---
+
+## binary(killer B)
+
+- task:
+  - There are four Kubernetes server binaries located at `/course/6/binaries`. You're provided with the following verified sha512 values for these:
+  - kube-apiserver: `f417c0555bc0167355589dd1afe23be9bf909bf98312b1025f12015d1b58a1c62c9908c0067a7764fa35efdac7016a9efa8711a44425dd6692906a7c283f032c`
+  - kube-controller-manager: `60100cc725e91fe1a949e1b2d0474237844b5862556e25c2c655a33boa8225855ec5ee22fa4927e6c46a60d43a7c4403a27268f96fbb726307d1608b44f38a60`
+  - kube-proxy: `52f9d8ad045f8eee1d689619ef8ceef2d86d50c75a6a332653240d7ba5b2a114aca056d9e513984ade24358c9662714973c1960c62a5cb37dd375631c8a614c6`
+  - kubelet: `4be40f2440619e990897cf956c32800dc96c2c983bf64519854a3309fa5aa21827991559f9c44595098e27e6f2ee4d64a3fdec6baba8a177881f20e3ec61e26c`
+  - Delete those binaries that don't match the sha512 values above.
+
+---
+
+- solution:
+
+```sh
+cd /course/6/binaries
+ll
+
+sha512sum kube-apiserver | grep f417c0555bc0167355589dd1afe23be9bf909bf98312b1025f12015d1b58a1c62c9908c0067a7764fa35efdac7016a9efa8711a44425dd6692906a7c283f032c
+sha512sum kube-controller-manager | grep 60100cc725e91fe1a949e1b2d0474237844b5862556e25c2c655a33boa8225855ec5ee22fa4927e6c46a60d43a7c4403a27268f96fbb726307d1608b44f38a60
+# return none
+sha512sum kube-proxy | grep 52f9d8ad045f8eee1d689619ef8ceef2d86d50c75a6a332653240d7ba5b2a114aca056d9e513984ade24358c9662714973c1960c62a5cb37dd375631c8a614c6
+sha512sum kubelet | grep 4be40f2440619e990897cf956c32800dc96c2c983bf64519854a3309fa5aa21827991559f9c44595098e27e6f2ee4d64a3fdec6baba8a177881f20e3ec61e26c
+# return none
+
+```
+
+---
+
+## API Server(killer B)
+
+- task
+  - Set the TLS min version of the Apiserver to version 1.3.
+  - Afterwards use `curl --tls-max 1.2 --tlsv1.2` to call the Apiserver and write the full output including any errors to `/course/15/curl.log`.
+
+---
+
+- solution:
+
+```sh
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# --tls-min-version=VersionTLS13
+
+# confirm
+crictl ps
+
+curl --tls-max 1.2 --tlsv1.2 https://localhost:6443
+# show error
+
+# write
+vi /course/15/curl.log
+
+# confirm
+cat /course/15/curl.log
+```

@@ -6,6 +6,7 @@
   - [Istio: inject sidecar](#istio-inject-sidecar)
   - [Istio: enable namespace mTLS](#istio-enable-namespace-mtls)
   - [Istio: enable global mTLS](#istio-enable-global-mtls)
+  - [Istio: enable mTLS (killer B)](#istio-enable-mtls-killer-b)
 
 ---
 
@@ -111,4 +112,29 @@ k apply -f global-pa.yaml
 k get pa -n istio-system
 # NAME     MODE     AGE
 # global   STRICT   6s
+```
+
+---
+
+## Istio: enable mTLS (killer B)
+
+- task:
+  - Deployment one runs in Namespace `team-sedum` and communicates with Deployment `two` via a Service of the same name.
+  - Istio has been installed in the cluster. Enable Istio sidecar injection for the whole Namespace and ensure all current and future Pods are running with the Istio proxy sidecar.
+
+---
+
+- solution:
+
+```sh
+# enable sidecar injection
+k label ns team-sedum istio-injection=enabled
+# confirm
+k get ns team-sedum --show-labels
+
+# sidecar inject
+k -n team-sedum rollout restart deploy one
+k -n team-sedum rollout restart deploy two
+
+k -n team-sedum rollout get pod
 ```

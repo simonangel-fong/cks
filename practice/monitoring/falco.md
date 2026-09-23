@@ -7,6 +7,7 @@
   - [falco: rule pod sh???](#falco-rule-pod-sh)
   - [falco(killer A)](#falcokiller-a)
   - [falco(killer B)](#falcokiller-b)
+  - [falco: syscall(killer B)](#falco-syscallkiller-b)
 
 ---
 
@@ -174,4 +175,38 @@ k scale deploy webapi -n team-clover --replicas=0
 
 # confirm
 k get deploy webapi -n team-clover -o wide
+```
+
+---
+
+## falco: syscall(killer B)
+
+- task:
+  - There are Pods in Namespace `team-tulip`. A security investigation noticed that some processes running in these Pods are using the Syscall `kill`, which is forbidden by an internal policy of Team Yellow.
+  - Find the offending Pod(s) and remove these by reducing the replicas of the parent Deployment to 0.
+
+---
+
+- solution:
+
+```sh
+# get scheduling node
+k -n team-tulip get pod -o wide
+
+ssh node1
+
+# define falco rule
+vi /etc/falco/falco_rules.local.yaml
+# - rule: rule name
+#   desc: rule
+#   condition: container and syscall. type = kill
+#   output : "kkkkkkkkkkkkkkkkkkkkkkkkkkkkkk program | user=%user. name command=%proc. cmdline container=%container.id"
+#   priority: WARNING
+
+falco -U | grep kkkkkk
+# get pod name
+# get ns
+
+k scale deploy --replicas=0
+k get deploy
 ```

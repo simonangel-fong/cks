@@ -5,6 +5,7 @@
 - [Practices - `etcd`](#practices---etcd)
   - [`etcd`: encrypted at rest](#etcd-encrypted-at-rest)
   - [etcd: encrypted at rest(killer A)](#etcd-encrypted-at-restkiller-a)
+  - [etcd: query(killer B)](#etcd-querykiller-b)
 
 ---
 
@@ -105,4 +106,29 @@ vi /etc/kubernetes/manifests/kube-apiserver.yaml
 crictl ps | grep apiserver
 
 kubectl get secrets --all-namespaces -o json | kubectl replace -f -
+```
+
+---
+
+## etcd: query(killer B)
+
+- task:
+  - There is an existing Secret called `database-access` in Namespace `team-daisy`.
+  - Read the complete Secret content directly from `ETCD` (using `etcdctl`) and store it into `/course/11/etcd-secret-content`
+  - Write the plain decoded value of the Secret's key pass into `/course/11/database-password`
+  - ℹ️ Use sudo -i to become root which may be required for this question
+
+---
+
+- solution:
+
+```sh
+ETCDCTL_API=3 etcdctl \
+   --cacert=/etc/kubernetes/pki/etcd/ca.crt   \
+   --cert=/etc/kubernetes/pki/etcd/server.crt \
+   --key=/etc/kubernetes/pki/etcd/server.key  \
+   get /registry/secrets/team-daisy/database-access > /course/11/etcd-secret-content
+
+k -n team-daisy get secret database-access -o yaml
+echo encode_value | base64 -d > /course/11/database-password
 ```

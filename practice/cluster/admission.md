@@ -9,6 +9,7 @@
   - [Admission: `ImagePolicyWebhook`](#admission-imagepolicywebhook)
   - [Admission: PSS](#admission-pss)
   - [Admission: ImagePolicyWebhook(killer A)](#admission-imagepolicywebhookkiller-a)
+  - [Admission: PSS(killer B)](#admission-psskiller-b)
 
 ---
 
@@ -423,4 +424,38 @@ crictl ps | grep apiserver
 # test
 k run test --image=danger-danger
 kubectl run allowed-test --image=nginx:1-alpine
+```
+
+---
+
+## Admission: PSS(killer B)
+
+- task:
+  - There is a Deployment `container-host-hacker` in Namespace `team-rose` which mounts `/run/containerd` as a hostPath volume on the node where it's running. This means that the Pod can access various data about other containers running on the same node.
+  - To prevent this, configure Namespace `team-rose` to `enforce` the `baseline` Pod Security Standard.
+  - Once completed, delete the Pod of the Deployment mentioned above.
+  - Check the `ReplicaSet events` and write the event/log lines containing the reason why the Pod isn't recreated into `/course/4/logs`.
+
+---
+
+- solution:
+
+```sh
+# add label
+kubectl label ns team-rose pod-security.kubernetes.io/enforce=baseline
+# confirm
+k get ns team-rose --show-labels
+
+# remove pod
+k -n team-rose delete pod container-host-hacker-dbf989777-wm8fc --force --grace-period 0
+
+# get rs
+k -n team-rose get rs
+# NAME                              DESIRED   CURRENT   READY   AGE
+# container-host-hacker-dbf989777   1         0         0       5m25s
+
+k -n team-rose describe rs container-host-hacker-dbf989777
+  # Warning  FailedCreate  78s                replicaset-controller  Error creating: pods "container-host-hacker-dbf989777-x5v5t" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
+  # Warning  FailedCreate  39s (x7 over 77s)  replicaset-controller  (combined from similar events): Error creating: pods "container-host-hacker-dbf989777-64q6p" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
+
 ```

@@ -7,6 +7,7 @@
   - [NP: deny all](#np-deny-all)
   - [NP: ip block](#np-ip-block)
   - [NP: net pol](#np-net-pol)
+  - [NP(killer B)](#npkiller-b)
 
 ---
 
@@ -265,3 +266,128 @@ k describe netpol -n beta
 | sudo apparmor_parser /path/to/profile       | Loads a new AppArmor profile file into the kernel memory.                          |
 | sudo apparmor_parser -r /path/to/profile    | Replaces or reloads an existing profile (critical if you updated a file).          |
 | sudo aa-enforce /path/to/profile            | Changes a loaded profile's mode to Enforce, strictly blocking disallowed actions.  |
+
+---
+
+## NP(killer B)
+
+- task:
+  - Namespace `team-ivy-private` contains the Deployment `api-private` and a NetworkPolicy protecting it. Do not make any changes in that Namespace.
+  - In Namespace `team-ivy-gateway`, implement what the policy in `team-ivy-private` requires in order to:
+    - Ensure Deployment `gateway-v1` can access Deployment `api-private` only on port `3000`
+    - Ensure Deployment `gateway-v2` can access Deployment `api-private` only on ports `4000` and `5000`
+  - Create a new NetworkPolicy (or multiple) which allows `gateway-v1` and `gateway-v2` to only have outgoing connections into Namespace `team-ivy-private`. No incoming traffic control needed.
+
+---
+
+- solution:
+- **COMMON MISTIKE**
+  - the existing NP define the contraint of connection, e.g., ingress label
+
+```sh
+# get deploy
+k -n team-ivy-private get pod -owide
+
+# get the np
+k -n team-ivy-private get networkpolicy api-private-access -oyaml
+# spec:
+#   ingress:
+#   - from:                                  ### ingress rule 3000
+#     - namespaceSelector: {}
+#       podSelector:
+#         matchLabels:
+#           api-access-operation: "true"
+#     ports:
+#     - port: 3000
+#       protocol: TCP
+  # - from:                                  ### ingress rule 4000
+  #   - namespaceSelector: {}
+  #     podSelector:
+  #       matchLabels:
+  #         api-access-status: "true"
+  #   ports:
+  #   - port: 4000
+  #     protocol: TCP
+  # - from:                                  ### ingress rule 5000
+  #   - namespaceSelector: {}
+  #     podSelector:
+  #       matchLabels:
+  #         api-access-report: "true"
+  #   ports:
+  #   - port: 5000
+  #     protocol: TCP
+
+# get deploy in ingress
+k -n team-ivy-gateway get deploy gateway-v1 --show-label
+# edit label
+k -n team-ivy-gateway edit deploy gateway-v1
+# spec:
+# ...
+#   template:
+#     metadata:
+#       creationTimestamp: null
+#       labels:
+#         id: gateway-v1
+#         api-access-operation: "true" # ADD to allow port 3000
+
+
+k -n team-ivy-gateway get deploy gateway-v2 --show-label
+# edit label
+k -n team-ivy-gateway edit deploy gateway-v2
+# spec:
+# ...
+#   template:
+#     metadata:
+#       creationTimestamp: null
+#       labels:
+#         id: gateway-v2
+#         api-access-status: "true" # ADD to allow port 4000
+#         api-access-report: "true" # ADD to allow port 5000
+
+
+```
+
+- new np
+
+```sh
+# get ns label
+k get ns team-ivy-private --show-labels
+# NAME               STATUS   AGE   LABELS
+# team-ivy-private   Active   89m   kubernetes.io/metadata.name=team-ivy-private
+```
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-v1
+  namespace: team-ivy-gateway
+spec:
+  podSelector:
+    matchLabels:
+      id: gateway-v1
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: team-ivy-private
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: gateway-v2
+  namespace: team-ivy-gateway
+spec:
+  podSelector:
+    matchLabels:
+      id: gateway-v2
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: team-ivy-private
+```

@@ -8,6 +8,7 @@
   - [Image: Digest to run a Pod](#image-digest-to-run-a-pod)
   - [Dockerfile](#dockerfile)
   - [Dockerfile: manage secret](#dockerfile-manage-secret)
+  - [Dockfile(kill B)](#dockfilekill-b)
 
 ---
 
@@ -193,3 +194,84 @@ docker exec app bash
 ```
 
 ---
+
+## Dockfile(kill B)
+
+- task:
+  - There is a Deployment image-verify in Namespace team-maple which runs image registry.killer.sh:5000/image-verify:v1. DevSecOps has asked you to improve this image by:
+    - Changing the base image to `alpine:3.22`
+    - Not installing `curl`
+    - Updating `nginx` to use the version constraint `>=1.18.0`
+    - Running the main process as user `myuser`
+  - Do not add any new lines to the Dockerfile, just edit existing ones. The file is located at `/course/16/image/Dockerfile`.
+  - Tag your version as `v2`. You can build, tag and push using:
+
+  ```sh
+  cd /course/16/image
+  podman build -t registry.killer.sh:5000/image-verify:v2 .
+  podman run registry.killer.sh:5000/image-verify:v2 # to test your changes
+  podman push registry.killer.sh:5000/image-verify:v2
+  ```
+
+  - Make the Deployment use your updated image tag `v2`.
+
+---
+
+- solution
+
+```sh
+cd /course/16/image
+cp Dockerfile Dockerfile.bak
+vim Dockerfile
+```
+
+- old
+
+```Dockerfile
+FROM alpine:3.4
+
+RUN apk update && apk add vim curl nginx=1.10.3-r0
+
+RUN addgroup -S myuser && adduser -S myuser -G myuser
+COPY ./run.sh run.sh
+RUN ["chmod", "+x", "./run.sh"]
+
+USER root
+
+ENTRYPOINT ["/bin/sh", "./run.sh"]
+```
+
+- update
+
+```Dockerfile
+# change
+FROM alpine:3.22
+
+# change
+RUN apk update && apk add vim nginx>=1.18.0
+
+RUN addgroup -S myuser && adduser -S myuser -G myuser
+COPY ./run.sh run.sh
+RUN ["chmod", "+x", "./run.sh"]
+
+# change
+USER myuser
+
+ENTRYPOINT ["/bin/sh", "./run.sh"]
+```
+
+```sh
+podman build -t registry.killer.sh:5000/image-verify:v2 .
+podman run registry.killer.sh:5000/image-verify:v2
+podman push registry.killer.sh:5000/image-verify:v2
+
+# update pod
+k -n team-maple edit deploy image-verify
+    # spec:
+    #   containers:
+    #   - image: registry.killer.sh:5000/image-verify:v2
+
+k -n team-maple logs -f -l id=image-verify
+k -n team-maple exec image-verify-55fbcd4c9b-x2flc -- curl
+k -n team-maple exec image-verify-6cd88b645f-8d5cn -- nginx -v
+```

@@ -3,10 +3,14 @@
 [back](../../README.md)
 
 - [Practice: Upgrade Cluster](#practice-upgrade-cluster)
+  - [Shortcut](#shortcut)
   - [Upgrade controlplane](#upgrade-controlplane)
   - [Upgrade worker noded](#upgrade-worker-noded)
+  - [Upgrade(killer B)](#upgradekiller-b)
 
 ---
+
+## Shortcut
 
 - Kubernetes Cluster Upgrade
   - Learn to upgrade both control plane and worker nodes using kubeadm
@@ -20,6 +24,8 @@
     - backup config file
     - fix config file
     - confirm, kubectl get
+
+---
 
 ## Upgrade controlplane
 
@@ -117,4 +123,67 @@ sudo systemctl restart kubelet
 
 # controlplane
 kubectl uncordon node01
+```
+
+---
+
+## Upgrade(killer B)
+
+- task:
+  - The cluster is running Kubernetes `1.34.8`, update it to `1.35.6`.
+  - Use `apt` package manager and `kubeadm` for this.
+  - Use ssh node1 from master to connect to the worker node.
+
+---
+
+- solution
+
+- controlplane
+
+```sh
+sudo apt update
+sudo apt-cache madison kubeadm
+
+sudo apt-mark unhold kubeadm && \
+sudo apt-get update && sudo apt-get install -y kubeadm='1.35.6-1.1' && \
+sudo apt-mark hold kubeadm
+
+kubeadm upgrade plan
+kubeadm upgrade apply v1.35.6 -y
+
+kubectl drain controlplane --ignore-daemonsets
+
+sudo apt-mark unhold kubelet kubectl && \
+sudo apt-get update && sudo apt-get install -y kubelet='1.35.6-1.1' kubectl='1.35.6-1.1' && \
+sudo apt-mark hold kubelet kubectl
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+kubectl uncordon controlplane
+```
+
+---
+
+- worker
+
+```sh
+sudo apt-mark unhold kubeadm && \
+sudo apt-get update && sudo apt-get install -y kubeadm='1.35.6-1.1' && \
+sudo apt-mark hold kubeadm
+
+sudo kubeadm upgrade node
+
+# controlplane
+kubectl drain node1 --ignore-daemonsets
+
+
+sudo apt-mark unhold kubelet kubectl && \
+sudo apt-get update && sudo apt-get install -y kubelet='1.35.6-1.1' kubectl='1.35.6-1.1' && \
+sudo apt-mark hold kubelet kubectl
+
+sudo systemctl daemon-reload
+sudo systemctl restart kubelet
+
+kubectl uncordon node1
 ```
