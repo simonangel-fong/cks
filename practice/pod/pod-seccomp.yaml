@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: pod-seccomp
+  labels:
+    app: pod-seccomp
+spec:
+  # restartPolicy: Never
+  securityContext:
+    seccompProfile:
+      type: RuntimeDefault # runtime default seccomp profile
+  containers:
+    - name: test-container
+      image: jess/amicontained:latest
+      args:
+        - "amicontained"
+      securityContext:
+        allowPrivilegeEscalation: false

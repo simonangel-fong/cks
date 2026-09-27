@@ -3,11 +3,22 @@
 [Back](../../README.md)
 
 - [Practices - Daemon](#practices---daemon)
+  - [Shortcut](#shortcut)
+    - [Recap](#recap)
+    - [secure docker daemon](#secure-docker-daemon)
   - [Daemon: Container Runtime sandboxed](#daemon-container-runtime-sandboxed)
   - [Docker: config(killer A)](#docker-configkiller-a)
   - [Sandbox (killer A)](#sandbox-killer-a)
+  - [Secure Docker: group](#secure-docker-group)
 
 ---
+
+## Shortcut
+
+| Command           | desc               |
+| ----------------- | ------------------ |
+| `dockerd`         | show log           |
+| `dockerd --debug` | show debug logging |
 
 - Docker Security
   - You need to be aware of `Docker Daemon` Security + `Dockerfile` security **best practices**.
@@ -17,6 +28,73 @@
        - know the config file, can be systemd, can be json config file
     3. Make Docker Daemon Secure
     4. Remove user from docker group.
+
+---
+
+### Recap
+
+- By default, Docker daemon can be accessible within the same host via `/var/run/docker.socket`
+- Docker daemon can be configured to accese via `IP:2375`
+  - external entity can acces Docker daemon via ip and port
+
+```sh
+# unencrypted
+export DOCKER_HOST="tcp://192.168.1.10:2375"
+# encrypted
+export DOCKER_HOST="tcp://192.168.1.10:2376"
+docker ps
+
+# must be encrypted
+dockerd --debug --host=tcp://192.168.1.10:2376 \
+  --tls=true    \
+  --tlscert=/var/docker/server.pem  \
+  --tlskey=/var/docker/serverkey.pem
+```
+
+- default config file:
+- `/etc/docker/daemon.json`
+
+---
+
+### secure docker daemon
+
+- Enabling Certificate-Based Authentication
+
+- Docker host side
+
+```json
+{
+  "debug": true,
+  "hosts": ["tcp://192.168.1.10:2376"],
+  "tls": true,
+  "tlscert": "/var/docker/server.pem",
+  "tlskey": "/var/docker/serverkey.pem",
+  "tlsverify": "true",
+  "tlscacert": "/var/docker/caserver.pem"
+}
+```
+
+```sh
+# set env var
+export DOCKER_TLS=true
+# tls port
+export DOCKER_HOST="tcp://192.168.1.10:2376"
+```
+
+---
+
+- client side:
+
+```sh
+export DOCKER_HOST="tcp://192.168.1.10:2376"
+export DOCKER_TLS_VERIFY="true"
+
+# access with cert
+docker --tlscert=<> --tlskey=<> --tlscacert=<>
+
+```
+
+---
 
 ## Daemon: Container Runtime sandboxed
 
@@ -202,4 +280,74 @@ k exec -it gvisor-test -- dmesg > /course/10/gvisor-test-dmesg
 
 # confirm
 cat /course/10/gvisor-test-dmesg
+```
+
+---
+
+## Secure Docker: group
+
+- task:
+  - Docker group and TCP access:
+    - A user named developer belongs to the docker group. Remove that membership
+    - Stop the Docker daemon from accepting TCP connections.
+
+- setup env:
+
+```sh
+sudo -i
+useradd -m developer
+id developer
+# uid=1003(developer) gid=1003(developer) groups=1003(developer)
+usermod -aG docker developer
+getent group docker
+# docker:x:1000:root,ubuntuadmin,developer
+id developer
+# uid=1003(developer) gid=1003(developer) groups=1003(developer),1000(docker)
+
+newgrp docker
+
+sudo vi /lib/systemd/system/docker.service
+# add ExecStart:
+# -H tcp://0.0.0.0:2375
+# or
+# -H fd://0.0.0.0:2375
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+
+```
+
+---
+
+- solution
+
+```sh
+# ###########################
+# remove user
+# ###########################
+# remove user
+gpasswd -d developer docker
+# Removing user developer from group docker
+
+# confirm
+getent group docker
+# docker:x:1000:root,ubuntuadmin
+
+# ###########################
+# Stop TCP connections
+# ###########################
+# find service file
+sudo systemctl status docker
+# ● docker.service - Docker Application Container Engine
+#      Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; preset: enabled)
+#      Active: active (running) since Sat 2026-09-26 08:12:20 EDT; 9s ago
+
+sudo vi /lib/systemd/system/docker.service
+# Remove any -H tcp://... or -H fd://...
+
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+# confirm
+sudo systemctl status docker
+
 ```
