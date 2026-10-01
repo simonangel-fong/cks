@@ -459,3 +459,5 @@ k -n team-rose describe rs container-host-hacker-dbf989777
   # Warning  FailedCreate  39s (x7 over 77s)  replicaset-controller  (combined from similar events): Error creating: pods "container-host-hacker-dbf989777-64q6p" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
 
 ```
+
+---

@@ -9,16 +9,20 @@
   - [Daemon: Container Runtime sandboxed](#daemon-container-runtime-sandboxed)
   - [Docker: config(killer A)](#docker-configkiller-a)
   - [Sandbox (killer A)](#sandbox-killer-a)
-  - [Secure Docker: group](#secure-docker-group)
+  - [\*\*Secure Docker: group](#secure-docker-group)
 
 ---
 
 ## Shortcut
 
-| Command           | desc               |
-| ----------------- | ------------------ |
-| `dockerd`         | show log           |
-| `dockerd --debug` | show debug logging |
+- dockerd daemon
+
+| Command                  | desc                                           |
+| ------------------------ | ---------------------------------------------- |
+| `dockerd`                | show log                                       |
+| `dockerd --debug`        | show debug logging                             |
+| `dockerd --group=root`   | specify root group for docker socket           |
+| `dockerd --host=IP:PORT` | Spcify the host Daemon socket(s) to connect to |
 
 - Docker Security
   - You need to be aware of `Docker Daemon` Security + `Dockerfile` security **best practices**.
@@ -60,7 +64,7 @@ dockerd --debug --host=tcp://192.168.1.10:2376 \
 
 - Enabling Certificate-Based Authentication
 
-- Docker host side
+- Docker host side: `/etc/docker/daemon.json`
 
 ```json
 {
@@ -284,7 +288,7 @@ cat /course/10/gvisor-test-dmesg
 
 ---
 
-## Secure Docker: group
+## \*\*Secure Docker: group
 
 - task:
   - Docker group and TCP access:

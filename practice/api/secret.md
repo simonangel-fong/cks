@@ -3,6 +3,7 @@
 [Back](../../README.md)
 
 - [Practices - Secret](#practices---secret)
+  - [Shorcut](#shorcut)
   - [Secret: create \& apply](#secret-create--apply)
   - [Secret: get value](#secret-get-value)
   - [Secret: apply as environment variable](#secret-apply-as-environment-variable)
@@ -11,6 +12,15 @@
   - [secret(killer A)](#secretkiller-a)
 
 ---
+
+## Shorcut
+
+- inject as env var
+  - specific key: `env`
+  - 需加强all keys: `envFrom`
+  - 同理：
+    - volume
+- imagePullSecrets
 
 - Kubernetes Secrets
   - basics of creating Secrets and mounting them to Pods.

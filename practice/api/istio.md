@@ -3,12 +3,21 @@
 [Back](../../README.md)
 
 - [Practices - Istio](#practices---istio)
+  - [Shortcut](#shortcut)
   - [Istio: inject sidecar](#istio-inject-sidecar)
   - [Istio: enable namespace mTLS](#istio-enable-namespace-mtls)
   - [Istio: enable global mTLS](#istio-enable-global-mtls)
   - [Istio: enable mTLS (killer B)](#istio-enable-mtls-killer-b)
 
 ---
+
+## Shortcut
+
+| cmd                           | desccription              |
+| ----------------------------- | ------------------------- |
+| `istioctl analyze -n ns_name` | analyze a ns istio config |
+| `istioctl analyze yaml_file`  | analyze a config file     |
+| `istioctl analyze dir_name`   | analyze a dir             |
 
 - Istio
   - sidecar inject: https://istio.io/latest/docs/setup/additional-setup/sidecar-injection/#deploying-an-app

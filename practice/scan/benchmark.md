@@ -17,13 +17,28 @@
     - Disable Anonymous Authentication in Kubelet ( cat /var/lib/kubelet/config.yaml)
     - Disable --auto-tls in etcd
 
-| Command                                     | description                   |
-| ------------------------------------------- | ----------------------------- |
-| `kube-bench run --targets master`           | benchmark master node         |
-| `kube-bench run --targets etcd`             | benchmark etcd                |
-| `kube-bench run --targets master -c 1.2.15` | benchmark against a document  |
-| `kube-bench run --config-dir cfg_dir`       | specify kube-bench config dir |
-| `kube-bench run --config config_file`       | specify a config file         |
+| Command                                                                               | description                   |
+| ------------------------------------------------------------------------------------- | ----------------------------- |
+| `kube-bench run --targets master`                                                     | benchmark master node         |
+| `kube-bench run --targets etcd`                                                       | benchmark etcd                |
+| `kube-bench run --targets master -c 1.2.15`                                           | benchmark against a document  |
+| `kube-bench run -D cfg_dir`                                                           | specify kube-bench config dir |
+| `kube-bench run --config config_file`                                                 | specify a config file         |
+| `kube-bench run --benchmarkv cis-1.10`                                                | specify cis verion            |
+| `kube-bench run --version string`                                                     | specify Kubernetes version    |
+| `kube-bench --benchmark cis-1.10 --config-dir /opt/kube-bench/cfg run --targets node` |                               |
+
+kube-bench --benchmark cis-1.10 --config-dir /opt/kube-bench/cfg run --targets master
+
+- `--target`:
+  - node: kubelet
+  - etcd: etcd
+  - master: controlplane and etcd
+
+```sh
+sudo groupadd --system etcd
+sudo useradd -s /sbin/nologin --system -g etcd etcd
+```
 
 ## CIS Benchmark fix controlplane
 

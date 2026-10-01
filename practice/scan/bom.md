@@ -20,6 +20,8 @@
 | `bom generate -i image_name --format json -o path_json` | Generate a SPDX-JSON SBOM |
 | `bom document outline spdx_file`                        | visualize SBOMs           |
 
+kubectl exec -n salad fruits-<string> -c apple -- apk info | grep curl && echo apple > ~/bugged-container.txt
+
 ---
 
 ## bom

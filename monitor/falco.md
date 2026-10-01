@@ -43,23 +43,23 @@
 
 ```sh
 # get gpg key
-curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | sudo gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
+curl -fsSL https://falco.org/repo/falcosecurity-packages.asc | gpg --dearmor -o /usr/share/keyrings/falco-archive-keyring.gpg
 
 # update repo list
-sudo bash -c 'cat << EOF > /etc/apt/sources.list.d/falcosecurity.list
+bash -c 'cat << EOF > /etc/apt/sources.list.d/falcosecurity.list
 deb [signed-by=/usr/share/keyrings/falco-archive-keyring.gpg] https://download.falco.org/packages/deb stable main
 EOF'
 
-sudo apt-get update -y
+apt-get update -y
 
-sudo apt install -y dkms make linux-headers-$(uname -r)
-sudo apt-get install -y dialog
+apt install -y dkms make linux-headers-$(uname -r)
+apt-get install -y dialog
 
-sudo apt-get install -y falco
+apt-get install -y falco
 # 2
 # 2
 
-sudo systemctl status falco-modern-bpf.service
+systemctl status falco-modern-bpf.service
 # ● falco-modern-bpf.service - Falco: Container Native Runtime Security with modern ebpf
 #      Loaded: loaded (/usr/lib/systemd/system/falco-modern-bpf.service; enabled; preset: enabled)
 #      Active: active (running) since Sat 2026-09-12 00:52:40 EDT; 22s ago

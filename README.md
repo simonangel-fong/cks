@@ -6,6 +6,7 @@
   - [Domains](#domains)
   - [Documentation List](#documentation-list)
   - [Instructions](#instructions)
+  - [reflection](#reflection)
 
 ---
 
@@ -126,9 +127,23 @@
 
 ---
 
-[ ] https://github.com/SebastianUA/Certified-Kubernetes-Security-Specialist
+kodekloud
 
-[ ] https://github.com/walidshaari/Certified-Kubernetes-Security-Specialist
+- [kodekloud cks lab](./kk/lab.md)
+- [kodekloud cks mock](./kk/mock.md)
+- trick
+
+- modify existing resource steps
+  - persistent:
+    - k get name -o yaml > number.yaml
+  - identify field to modify
+  - search the field
+  - get document
+  - paste
+  - check
+  - apply
+  - confirm
+    - k get name -o yaml | grep field_value
 
 - youtube question
   - [ ] https://www.youtube.com/watch?v=Jd_j2wruz6E&list=PLpbwBK0ptssx38770vYNwZEuCeGNw54CH
@@ -200,3 +215,81 @@
 ## Instructions
 
 https://docs.linuxfoundation.org/tc-docs/certification/important-instructions-cks
+
+---
+
+## reflection
+
+4C's of Cloud native security
+
+- cloud: infra layer
+- cluster: authen, author, admission, netpol
+- container: supplychain, image, runtime, privilege
+- code: code security
+
+---
+
+auditing:
+
+```yaml
+# rule on all ns
+- level: Request
+  resources:
+    - group: ""
+      resources: ["namespaces"]
+
+# rule on all reousrce in a ns
+- level: Request
+  namespaces: ["team-a"]
+
+# rule on a resource in a ns
+- level: Request
+  resources:
+    - group: "" # core API group
+      resources: ["configmaps"]
+  namespaces: ["kube-system"]
+```
+
+---
+
+netpol: multiple rules with different port
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: internal-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      name: internal
+  policyTypes:
+    - Egress
+    - Ingress
+  ingress:
+    - {}
+  egress:
+    # rule for 3306 port
+    - to:
+        - podSelector:
+            matchLabels:
+              name: mysql
+      ports:
+        - protocol: TCP
+          port: 3306
+    # rule for 8080 port
+    - to:
+        - podSelector:
+            matchLabels:
+              name: payroll
+      ports:
+        - protocol: TCP
+          port: 8080
+    # rule for dns
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+```

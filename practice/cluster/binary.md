@@ -3,6 +3,10 @@
 [Back](../../README.md)
 
 - [Practices - Verify Binary](#practices---verify-binary)
+  - [Shortcut](#shortcut)
+    - [Kubeconfig](#kubeconfig)
+    - [Kubelet](#kubelet)
+    - [kube-apiserver](#kube-apiserver)
   - [Binary: `kubelet`](#binary-kubelet)
   - [Binary: `kubectl` current version](#binary-kubectl-current-version)
   - [Binary: verify tar file](#binary-verify-tar-file)
@@ -10,6 +14,45 @@
   - [apiserver: flag(killer A)](#apiserver-flagkiller-a)
   - [binary(killer B)](#binarykiller-b)
   - [API Server(killer B)](#api-serverkiller-b)
+
+---
+
+## Shortcut
+
+### Kubeconfig
+
+| CMD                                  | DESC                |
+| ------------------------------------ | ------------------- |
+| `kubectl --kubeconfig=/path/to/conf` | specify config file |
+
+- enforce using config file
+
+```sh
+# unset envvar
+unset KUBECONFIG
+# remove default config
+mv ~/.kube/config ~/.kube/config.bak
+```
+
+---
+
+### Kubelet
+
+- kubelet config file:
+  - `/var/lib/kubelet/config.yaml`
+- kubeconfig file for kubelet
+  - `/etc/kubernetes/kubelet.conf`
+- seccomp profiles
+  - `/var/lib/kubelet/seccomp`
+- default host directory for seccomp
+  - `/var/lib/kubelet/seccomp/profiles`
+
+---
+
+### kube-apiserver
+
+- config file path:
+  - `etc/kubernetes/manifests/kube-apiserver.yaml`
 
 ---
 

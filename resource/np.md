@@ -3,6 +3,7 @@
 [Back](../README.md)
 
 - [CKS: Network policies](#cks-network-policies)
+  - [Shortcut](#shortcut)
   - [Network policies](#network-policies)
     - [Supported Filtering Entities](#supported-filtering-entities)
     - [except field](#except-field)
@@ -10,6 +11,34 @@
   - [Lab: network policy](#lab-network-policy)
     - [flat network](#flat-network)
     - [Deny all](#deny-all)
+
+---
+
+## Shortcut
+
+- only allow egress within cluster
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: deny-external-egress
+  namespace: namespace-worker
+spec:
+  podSelector: {} # Selects all pods in namespace-worker
+  policyTypes:
+    - Egress
+  egress:
+    # Allow egress to all pods in all namespaces
+    - to:
+        - namespaceSelector: {} # All namespaces
+          podSelector: {} # All pods
+```
+
+- unclear task:
+  - pod to service
+    - np
+    - cilium
 
 ---
 

@@ -4,10 +4,11 @@
 
 - [Practices - falco](#practices---falco)
   - [Shortcut](#shortcut)
-  - [falco: rule pod sh???](#falco-rule-pod-sh)
+    - [Falco condition types](#falco-condition-types)
   - [falco(killer A)](#falcokiller-a)
   - [falco(killer B)](#falcokiller-b)
   - [falco: syscall(killer B)](#falco-syscallkiller-b)
+  - [falco: pod access /dev/mem](#falco-pod-access-devmem)
 
 ---
 
@@ -25,44 +26,96 @@
 
 ---
 
-## falco: rule pod sh???
+### Falco condition types
 
-- context;
-  - falco is installed and running
-- task:
-  - confirm falco is monitoring cluster
-  - create a pod name `web-app` using `nginx:alpine`
-  - `kubectl exec -it web-app -- sh`
-  - check falco logs
+- common field:
+  - network:
+    - `fd.rip`
+    - `fd.rport`
+    - `fd.lip`
+    - `fd.lport`
+    - `fd.name`
+  - file:
+    - `evt.type`
+    - `fd.name`
+    - `fd.directory`
+    - `fd.filename`
+  - user:
+    - `user.uid`
+    - `user.name`
+  - event:
+    - `evt.type`
+    - `evt.time`
+    - `evt.time.s`
+  - process
+    - `proc.name`
+    - `proc.cmdline`
 
 ---
 
-- solution
+- files
 
-```sh
-# confirm falco is running
-systemctl status falco
-# ● falco-modern-bpf.service - Falco: Container Native Runtime Security with modern ebpf
-#      Loaded: loaded (/usr/lib/systemd/system/falco-modern-bpf.service; enabled; preset: enabled)
-#      Active: active (running) since Tue 2026-09-15 08:29:44 EDT; 51min ago
-#        Docs: https://falco.org/docs/
-#    Main PID: 8472 (falco)
-#       Tasks: 18 (limit: 7689)
-#      Memory: 72.0M (peak: 457.6M)
-#         CPU: 38.029s
-#      CGroup: /system.slice/falco-modern-bpf.service
+```yaml
+condition: >
+  evt.type in (open, openat, openat2)
+  and fd.name = "/dev/mem"
 
-sudo journalctl _COMM=falco -f
+condition: >
+   evt.type in (open, openat, openat2)
+   and evt.is_open_write=true
+   and fd.name startswith "/path"
+```
+
+- Spawn/execute a process
+
+```yaml
+# execute curl
+condition: >
+  evt.type in (execve, execveat)
+  and proc.name = curl
+
+# execute with args
+condition: >
+  evt.type in (execve, execveat)
+  and proc.cmdline contains "chmod 777"
+
+# parent process
+condition: >
+  evt.type in (execve, execveat)
+  and proc.pname = nginx
+  and proc.name = bash
+
+# user id
+condition: >
+  evt.type in (execve, execveat)
+  and user.name = root
+  and proc.name = curl
+
+```
+
+- Spawn process inside a container
+
+```yaml
+# start bash in con
+condition: >
+  evt.type in (execve, execveat)
+  and container.id != host
+  and proc.name = bash
+
+# curl in con
+condition: >
+  evt.type in (execve, execveat)
+  and container.id != host
+  and proc.name = curl
+  and proc.cmdline contains "169.254.169.254"
+
+# privileged
+condition: >
+  evt.type in (open, openat, openat2)
+  and container.id != host
+  and container.privileged = true
 
 
-kubectl run web-app --image=nginx
-# pod/web-app created
-
-kubectl exec -it web-app -- sh
-
-journalctl -fu falco
-
-cat /var/log/syslog | grep falco
 ```
 
 ---
@@ -209,4 +262,62 @@ falco -U | grep kkkkkk
 
 k scale deploy --replicas=0
 k get deploy
+```
+
+---
+
+## falco: pod access /dev/mem
+
+- a pod in defautl ns reach `/dev/mem`
+- find it and scale to 0
+
+---
+
+- solution
+
+IMPORTANT: in worker node
+
+```yaml
+# /etc/falco/falco_rules.local.yaml
+- rule: Access Dev Mem
+  desc: Detect container accessing /dev/mem
+  condition: >
+    evt.type in (open, openat, openat2)
+    and container.id != host
+    and fd.name = /dev/mem
+  output: >
+    DEV_MEM_ACCESS (container=%container.name id=%container.id file=%fd.name)
+  priority: WARNING
+```
+
+```sh
+systemctl restart falco
+systemctl status falco
+
+# test
+cat <<EOF | kubectl apply -f -
+apiVersion: v1
+kind: Pod
+metadata:
+  name: devmem-test
+spec:
+  containers:
+  - name: test
+    image: busybox
+    command:
+    - sh
+    - -c
+    - |
+      touch /dev/mem
+      while true; do
+        cat /dev/mem >/dev/null
+        sleep 2
+      done
+EOF
+
+kubectl delete po devmem-test --grace-period=0
+
+journalctl _COMM=falco -f | grep DEV_MEM_ACCESS
+# Oct 01 05:29:11 node01 falco[13755]: 05:29:11.244165973: Warning DEV_MEM_ACCESS (container=test id=4bf52a278e79 file=/dev/mem) container_id=4bf52a278e79 container_name=test container_image_repository=docker.io/library/busybox container_image_tag=latest k8s_pod_name=devmem-test k8s_ns_name=default
+# Oct 01 05:29:11 node01 falco[13438]: 05:29:11.244163517: Warning DEV_MEM_ACCESS (container=test id=4bf52a278e79 file=/dev/mem) container_id=4bf52a278e79 container_name=test container_image_repository=docker.io/library/busybox container_image_tag=latest k8s_pod_name=devmem-test k8s_ns_name=default
 ```

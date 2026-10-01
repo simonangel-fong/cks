@@ -3,10 +3,41 @@
 [Back](../../README.md)
 
 - [Practices - Secure the node](#practices---secure-the-node)
+  - [Shortcut](#shortcut)
   - [Node: Disable Open Ports](#node-disable-open-ports)
   - [Node: Disable Service](#node-disable-service)
   - [kubeconfig(killer A)](#kubeconfigkiller-a)
   - [unknown process(killer A)](#unknown-processkiller-a)
+
+---
+
+## Shortcut
+
+- specify a config file
+  - env var: `KUBECONFIG`
+  - define in `.bashrc`
+
+---
+
+- os services clean up
+
+| cmd                                   | desc                          |
+| ------------------------------------- | ----------------------------- |
+| `apt list --installed`                | list installed packages       |
+| `systemctl list-units --type service` | list all active service units |
+| `systemctl stop service_name`         | stop a service                |
+| `systemctl disable service_name`      | disable a service             |
+| `rm service_unit_file`                | remove unit file              |
+| `apt remove service_name`             | remove a service              |
+
+---
+
+- disable port
+
+| CMD                 | DESC                                     |
+| ------------------- | ---------------------------------------- |
+| `netstat -tnlp`     | display active network connections       |
+| `cat /etc/services` | map network service names to port number |
 
 ---
 
