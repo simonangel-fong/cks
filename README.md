@@ -131,6 +131,7 @@ kodekloud
 
 - [kodekloud cks lab](./kk/lab.md)
 - [kodekloud cks mock](./kk/mock.md)
+- [kodekloud cks mock2](./kk/mock2.md)
 - trick
 
 - modify existing resource steps
