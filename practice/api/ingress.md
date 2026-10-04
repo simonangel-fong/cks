@@ -5,6 +5,9 @@
 - [Practices - Ingress](#practices---ingress)
   - [Ingress: tls](#ingress-tls)
   - [Ingress(killer A)](#ingresskiller-a)
+  - [Task: Ingress TLS](#task-ingress-tls)
+  - [Task: Ingress](#task-ingress)
+  - [Ingress](#ingress)
 
 ---
 
@@ -118,3 +121,153 @@ k edit ingress -n team-pink
 # confirm
 k get ing -n team-pink
 ```
+
+---
+
+## Task: Ingress TLS
+
+A deployment `rocket-server` is exposed using the service of the same name in the `space` namespace.
+
+Create an ingress resource named `rocket-ingress` to load balance the incoming traffic to the workload on path `/`.
+
+Use the hostname `rocket-server.local` in the Ingress rules.
+
+Utilize the TLS certificate stored in a secret named `rocket-tls` in the `space` namespace so that it enables TLS traffic on that ingress resource.
+
+---
+
+- **Solution**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: rocket-ingress
+  namespace: space
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - rocket-server.local
+      secretName: rocket-tls
+  rules:
+    - host: rocket-server.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: rocket-server
+                port:
+                  number: 80
+```
+
+---
+
+## Task: Ingress
+
+Task
+The `secure-web` namespace contains a web application deployment `secure-app` exposed by a service of the same name.
+
+Create an ingress resource named `secure-ingress` with the following security requirements:
+
+- Route traffic for host `secure-app.company.com` to the backend service on path /
+- Enable TLS using the existing secret `web-tls` in the `secure-web` namespace
+- Configure the ingress to:
+  - Force SSL redirect (HTTP to HTTPS)
+  - Use the `nginx` ingress class
+  - Add the annotation `nginx.ingress.kubernetes.io/ssl-passthrough: "false"`
+    Ensure the ingress only accepts HTTPS traffic
+    Verify the ingress is working with TLS termination by testing through the ingress-nginx controller's NodePort.
+
+Note: The ingress-nginx controller uses NodePorts for external access. Use the correct HTTPS NodePort assigned to the ingress-nginx service.
+
+---
+
+- solution:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: secure-ingress
+  namespace: secure-web
+  annotations:
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "false"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - secure-app.company.com
+      secretName: web-tls
+  rules:
+    - host: secure-app.company.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: secure-app
+                port:
+                  number: 80
+```
+
+---
+
+## Ingress
+
+Task
+In the `galaxy` namespace, a deployment `starship-api` is exposed by a service of the same name.
+
+Create an ingress resource named `starship-ingress` to route incoming traffic to the workload on path `/api`.
+
+the backend serves its content at `/`, so the ingress must rewrite the request path accordingly
+
+Use the hostname `starship.company.com` for the Ingress rules.
+
+Utilize the TLS certificate stored in the secret `starship-tls` in the `galaxy` namespace to enable TLS traffic on that ingress resource.
+
+The ingress should redirect all HTTP traffic to HTTPS.
+
+---
+
+- Solution
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: starship-ingress
+  namespace: galaxy
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - starship.company.com
+      secretName: starship-tls
+rules:
+  - host: starship.company.com
+    http:
+      paths:
+        - path: /api
+          pathType: Prefix
+          backend:
+            service:
+              name: starship-api
+            port:
+              number: 80
+```
+
+```sh
+vi /etc/hosts
+```
+
+---

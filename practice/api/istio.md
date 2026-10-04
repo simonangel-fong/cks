@@ -8,6 +8,7 @@
   - [Istio: enable namespace mTLS](#istio-enable-namespace-mtls)
   - [Istio: enable global mTLS](#istio-enable-global-mtls)
   - [Istio: enable mTLS (killer B)](#istio-enable-mtls-killer-b)
+  - [Task: istio - sidecar, mtls](#task-istio---sidecar-mtls)
 
 ---
 
@@ -147,3 +148,41 @@ k -n team-sedum rollout restart deploy two
 
 k -n team-sedum rollout get pod
 ```
+
+---
+
+## Task: istio - sidecar, mtls
+
+Task
+The namespace `encrypted` has two applications, `alpha` and `beta`.
+
+Since these applications handle critical communications, enforce strict `mTLS` using Istio in the `encrypted` namespace.
+
+Make sure that the workloads have the istio sidecar injected.
+
+Note: istio and istioctl have already been installed for you.
+
+---
+
+- Solution
+
+```sh
+kubectl label namespace encrypted istio-injection=enabled --overwrite
+
+kubectl -n encrypted rollout restart deployment alpha beta
+kubectl -n encrypted rollout status deployment alpha
+kubectl -n encrypted rollout status deployment beta
+```
+
+```yaml
+apiVersion: security.istio.io/v1
+kind: PeerAuthentication
+metadata:
+  name: default
+  namespace: encrypted
+spec:
+  mtls:
+    mode: STRICT
+```
+
+---

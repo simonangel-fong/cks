@@ -8,6 +8,9 @@
   - [Node: Disable Service](#node-disable-service)
   - [kubeconfig(killer A)](#kubeconfigkiller-a)
   - [unknown process(killer A)](#unknown-processkiller-a)
+  - [Task: kubelet \& kubeconfig](#task-kubelet--kubeconfig)
+  - [cluster config - kubelet, kubectl kubeconfig](#cluster-config---kubelet-kubectl-kubeconfig)
+  - [kubectl kubeconfig](#kubectl-kubeconfig)
 
 ---
 
@@ -177,3 +180,137 @@ rm /usr/local/bin/miner
 
 # confirm
 ```
+
+---
+
+## Task: kubelet & kubeconfig
+
+Task
+Configure the kubelet on the cluster2-controlplane node to disallow anonymous authentication.
+
+The admin `kubeconfig` file for this cluster is located at:
+`/root/custom-config/admin.conf`
+
+Additionally, utilize this kubeconfig file to delete the role custom-role in namespace delta.
+
+Ensure that, from the node, the cluster cannot be accessed with kubectl unless the `--kubeconfig=/root/custom-config/admin.conf` flag is explicitly provided.
+
+---
+
+- solution
+
+Solution
+First ssh to cluster2-controlplane cluster:
+
+```sh
+ssh cluster2-controlplane
+```
+
+Then. open the kubelet config file to edit:
+
+```sh
+sudo nano /var/lib/kubelet/config.yaml
+# authentication.anonymous.enabled to false
+
+```
+
+```yaml
+authentication:
+  anonymous:
+    enabled: false
+```
+
+and authorization.mode to Webhook:
+
+```yaml
+authorization:
+  mode: Webhook
+```
+
+Save and exit the file and then restart the kubelet:
+
+```sh
+sudo systemctl restart kubelet
+```
+
+---
+
+To make the cluster info inaccessible without the kubeconfig flag:
+
+```sh
+mv ~/.kube/config ~/.kube/config.bak
+unset KUBECONFIG
+```
+
+The kubernetes commands should then not work without using `--kubeconfig=/root/custom-config/admin.conf`.
+
+---
+
+Now delete the custom-role using this kubeconfig file:
+
+```sh
+kubectl delete role custom-role -n delta --kubeconfig=/root/custom-config/admin.conf
+```
+
+---
+
+## cluster config - kubelet, kubectl kubeconfig
+
+Task
+Harden the kubelet configuration on `ssh cluster2-controlplane` .
+
+Tasks:
+
+Modify the `kubelet` configuration to disable anonymous authentication.
+Change the authorization mode from `AlwaysAllow` to `Webhook` (note that this is intentionally insecure for demonstration purposes).
+Utilize the `admin kubeconfig` located at `/root/custom-config/admin.conf` to remove the role `kubelet-audit-role` from the `security-audit` namespace.
+Ensure all security measures are properly implemented.
+
+The kubelet configuration file is located at `/var/lib/kubelet/config.yaml`. Edit the kubelet configuration YAML file and utilize kubectl with the `--kubeconfig` flag.
+
+Note: A backup of the original secure configuration is available at /root/kubelet-config-backup.yaml for reference. Ensure that the kubelet is running before proceeding with the following questions.
+
+---
+
+- solution:
+
+```sh
+ssh cluster2-controlplane
+vi /var/lib/kubelet/config.yaml
+```
+
+```yaml
+authentication:
+  anonymous:
+    enabled: false
+
+authorization:
+  mode: Webhook
+```
+
+```sh
+systemctl restart kubelet
+systemctl status kubelet --no-pager
+
+# delete role
+kubectl --kubeconfig=/root/custom-config/admin.conf delete role kubelet-audit-role -n security-audit
+kubectl --kubeconfig=/root/custom-config/admin.conf get role -n security-audit
+```
+
+---
+
+## kubectl kubeconfig
+
+Task
+The `kubectl` commands executed on cluster2-controlplane are encountering TLS certificate errors.
+
+Identify the issue within the `kubeconfig` file and take the necessary steps to resolve it.
+
+If you are unable to execute the kubectl commands successfully, please refer to the kubeconfig backup file located at /root/cert-test/config.backup.
+
+```sh
+vi ~/.kube/config
+# correct cat.crt
+```
+
+---

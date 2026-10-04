@@ -6,6 +6,8 @@
   - [Audit: Secret](#audit-secret)
   - [Audit: Pod](#audit-pod)
   - [Audit(killer A)](#auditkiller-a)
+  - [Task: Audit](#task-audit)
+  - [Audit](#audit)
 
 ---
 
@@ -215,3 +217,141 @@ cat /etc/kubernetes/audit/logs/audit.log
 
 > for everything else don't log anything
 > `- level: None`
+
+---
+
+## Task: Audit
+
+You need to enable auditing on this cluster. A basic policy file is available at `/etc/kubernetes/cluster-policy.yaml`.
+
+The logs should be stored at `/var/log/cluster-audit.log`. The logs should be retained for 10 days and should not exceed 10MB. A maximum of 3 files should be kept at a time.
+
+After you enable auditing on the cluster, update the basic policy file to track the following:
+
+- Delete activity on secrets in the kube-system namespace at the Metadata level
+- Changes to deployments in the default namespace at the Request level
+- All other requests at the Metadata level
+- Make sure your changes to the policy file are in effect.
+
+Note: A copy of the kube-apiserver.yaml is kept in ~/ so that you can revert if the configuration goes wrong. Make sure kube-apiserver is working fine for the sake of grading the exam.
+
+---
+
+- **Solution**
+
+```yaml
+# /etc/kubernetes/cluster-policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+  - "RequestReceived"
+rules:
+  - level: Metadata
+    verbs: ["delete"]
+    resources:
+      - group: ""
+        resources: ["secrets"]
+    namespaces: ["kube-system"]
+  - level: Request
+    verbs: ["create", "update", "patch", "delete"]
+    resources:
+      - group: "apps"
+        resources: ["deployments"]
+    namespaces: ["default"]
+  - level: Metadata
+```
+
+```sh
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --audit-policy-file=/etc/kubernetes/cluster-policy.yaml
+# - --audit-log-path=/var/log/cluster-audit.log
+# - --audit-log-maxage=10
+# - --audit-log-maxsize=10
+# - --audit-log-maxbackup=3
+
+# volumeMounts:
+# - name: cluster-audit-policy
+#   mountPath: /etc/kubernetes/cluster-policy.yaml
+#   readOnly: true
+# - name: cluster-audit-log
+#   mountPath: /var/log/cluster-audit.log
+
+
+# volumes:
+# - name: cluster-audit-policy
+#   hostPath:
+#     path: /etc/kubernetes/cluster-policy.yaml
+#     type: File
+# - name: cluster-audit-log
+#   hostPath:
+#     path: /var/log/cluster-audit.log
+#     type: FileOrCreate
+
+kubectl get nodes
+kubectl get namespace default
+tail -n 5 /var/log/cluster-audit.log
+```
+
+---
+
+## Audit
+
+Task
+Enable audit logging for the Kubernetes API server to monitor security-relevant events. Please adhere to the following steps:
+
+Create an audit policy at `/etc/kubernetes/audit-policy.yaml` that logs at `Metadata` level for all requests, omitting the `RequestReceived` stage.
+Configure audit log rotation with the following specifications: a maximum size of `100MB`, retain `10` backups, and maintain logs for a maximum of `30` days.
+Set the audit log path to `/var/log/kubernetes/audit.log`.
+Mount the necessary directories to facilitate the API server's access to policy files and enable log writing.
+Please ensure that the API server continues to function normally after implementing these changes to be able to resume the exam.
+
+In the event that the API server does not recover, a backup is stored at /root/kube-apiserver-backup.yaml. To restore the API server, execute the following commands:
+
+cp /root/kube-apiserver-backup.yaml /etc/kubernetes/manifests/kube-apiserver.yaml
+sleep 45
+kubectl get nodes
+
+---
+
+- solution
+
+```yaml
+# /etc/kubernetes/audit-policy.yaml
+apiVersion: audit.k8s.io/v1
+kind: Policy
+omitStages:
+  - RequestReceived
+rules:
+  - level: Metadata
+```
+
+```sh
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --audit-policy-file=/etc/kubernetes/audit-policy.yaml
+# - --audit-log-path=/var/log/kubernetes/audit.log
+# - --audit-log-maxsize=100
+# - --audit-log-maxbackup=10
+# - --audit-log-maxage=30
+
+# volumeMounts:
+# - name: audit-policy
+#   mountPath: /etc/kubernetes/audit-policy.yaml
+#   readOnly: true
+# - name: audit-log
+#   mountPath: /var/log/kubernetes
+
+# volumes:
+# - name: audit-policy
+#   hostPath:
+#     path: /etc/kubernetes/audit-policy.yaml
+#     type: File
+# - name: audit-log
+#   hostPath:
+#     path: /var/log/kubernetes
+#     type: DirectoryOrCreate
+
+
+# debug
+crictl ps | grep kube-apiserver
+
+```

@@ -10,6 +10,9 @@
   - [Secret: Mount Secret as Volume](#secret-mount-secret-as-volume)
   - [Secret (killer A)](#secret-killer-a)
   - [secret(killer A)](#secretkiller-a)
+  - [Task: secret - volume](#task-secret---volume)
+  - [Task: secret - volume](#task-secret---volume-1)
+  - [Secret - registry](#secret---registry)
 
 ---
 
@@ -330,3 +333,127 @@ cat /course/p2/audit.log | grep vault1 | grep p.auster
 k edit secret mysql1
 k edit secret vault1
 ```
+
+---
+
+## Task: secret - volume
+
+A pod has been created in the `orion` namespace. It uses secrets as environment variables.
+Extract the decoded secret for the `CONNECTOR_PASSWORD` and place it under `/root/CKS/secrets/CONNECTOR_PASSWORD`.
+
+You are not yet done; instead of using secrets as an environment variable, mount the secret as a read-only volume at the path `/mnt/connector/password`, which the application can then use.
+
+---
+
+- Solution
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: app-xyz
+  namespace: orion
+  labels:
+    name: app-xyz
+spec:
+  containers:
+    - name: app-xyz
+      image: nginx:alpine
+      ports:
+        - containerPort: 3306
+      volumeMounts:
+        - name: secret-volume
+          mountPath: /mnt/connector/password
+          readOnly: true
+  volumes:
+    - name: secret-volume
+      secret:
+        secretName: a-safe-secret
+```
+
+---
+
+## Task: secret - volume
+
+Task
+In the namespace `code`, create a TLS secret `code-secret` with the following certificate and key provided:
+
+cert: `/root/custom-cert.crt`
+key: `/root/custom-key.key`
+Attach that secret as a volume named `secret-volume` in the deployment `code-server`.
+
+---
+
+- solution:
+
+```sh
+kubectl -n code create secret tls code-secret \
+  --cert=/root/custom-cert.crt \
+  --key=/root/custom-key.key
+```
+
+```yaml
+volumes:
+  - name: secret-volume
+    secret:
+      secretName: code-secret
+
+volumeMounts:
+  - name: secret-volume
+    mountPath: /etc/tls
+    readOnly: true
+```
+
+---
+
+## Secret - registry
+
+Task
+A private container registry requires authentication for pulling images. Configure the necessary resources to allow pods in the `private-registry-ns` namespace to pull images from a private registry.
+
+Tasks:
+
+Create a Secret of type docker-registry named `my-registry-key` in the private-registry-ns namespace
+Use the following credentials:
+
+- Username: myuser
+- Password: mypassword
+- Email: myuser@example.com
+- Registry server: registry.example.com
+
+Create a Pod named `private-app` with label `app: private-app` that references the image pull secret
+Use the `busybox` image with command `["sleep", "3600"]` for testing purposes
+This ensures secure access to private container images.
+
+The pod should use the busybox image for testing since we don't have actual access to the private registry.
+
+---
+
+- solution
+
+```sh
+kubectl create secret docker-registry my-registry-key -n private-registry-ns \
+  --docker-server=registry.example.com \
+  --docker-username=myuser \
+  --docker-password=mypassword \
+  --docker-email=myuser@example.com
+```
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: private-app
+  namespace: private-registry-ns
+  labels:
+    app: private-app
+spec:
+  imagePullSecrets:
+    - name: my-registry-key
+  containers:
+    - name: private-app
+      image: busybox
+      command: ["sleep", "3600"]
+```
+
+---

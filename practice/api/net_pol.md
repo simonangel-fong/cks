@@ -8,6 +8,13 @@
   - [NP: ip block](#np-ip-block)
   - [NP: net pol](#np-net-pol)
   - [NP(killer B)](#npkiller-b)
+  - [Task: network policy - NS](#task-network-policy---ns)
+  - [Task: network policy](#task-network-policy)
+  - [Task: Network policy - IPblock](#task-network-policy---ipblock)
+  - [Task: Network policy](#task-network-policy-1)
+  - [task: NP - port](#task-np---port)
+  - [NP - ipblock](#np---ipblock)
+  - [NP - port,{}](#np---port)
 
 ---
 
@@ -391,3 +398,348 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: team-ivy-private
 ```
+
+---
+
+## Task: network policy - NS
+
+Deployment `web-app` is running in the `products` namespace.
+
+Database `product-db` is running in the `database` namespace.
+
+Create a network policy named `allow-traffic-to-products` that allows traffic from `product-db` to the `web-app` workload, as well as all traffic originating from the `payments` namespace.
+
+Utilize the labels applied on the relevant resources.
+
+---
+
+- **Solution:**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-traffic-to-products
+  namespace: products
+spec:
+  podSelector:
+    matchLabels:
+      app: web-app
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: database
+          podSelector:
+            matchLabels:
+              app: product-db
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: payments
+```
+
+---
+
+## Task: network policy
+
+Task
+A pod called `redis-backend` has been created in the `prod-x12cs` namespace. It has been exposed as a service of type ClusterIP. The pod listens on TCP port `6379`.
+
+Create a network policy called `allow-redis-access` to lock down access to this pod only for the following:
+
+Any pod in the same namespace with the label `backend=prod-x12cs`
+
+All pods in the `prod-yx13cs` namespace
+
+Ensure that traffic is only allowed on TCP port 6379.
+
+All other incoming connections should be blocked.
+
+Use the existing labels when creating the network policy.
+
+---
+
+- **Solution**
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-redis-access
+  namespace: prod-x12cs
+spec:
+  podSelector:
+    matchLabels:
+      app: redis-backend # replace with the Pod's actual label
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              backend: prod-x12cs
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: prod-yx13cs
+      ports:
+        - protocol: TCP
+          port: 6379
+```
+
+---
+
+## Task: Network policy - IPblock
+
+Task
+A security team has identified that pods in the `threat-prevention` namespace are attempting to connect to known malicious IP ranges used for command and control servers.
+
+Create a NetworkPolicy that:
+
+- Blocks ALL egress traffic to the following malicious CIDR ranges:
+  - `192.168.100.0/24`
+  - `10.0.99.0/24`
+- Allows DNS traffic (UDP and TCP port 53) to ensure basic network functionality
+- Allows all other egress traffic except the blocked malicious ranges
+- Applies to all pods in the `threat-prevention` namespace
+- The policy should be named block-malicious-egress and should not affect ingress traffic.
+
+---
+
+- solution:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: block-malicious-egress
+  namespace: threat-prevention
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS everywhere
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # Allow everything except malicious CIDRs
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 192.168.100.0/24
+              - 10.0.99.0/24
+```
+
+---
+
+## Task: Network policy
+
+Task
+The `web-apps` namespace contains a frontend application that should only be accessible from specific sources.
+
+Create a `NetworkPolicy` that:
+
+- Allows ingress traffic on TCP port 80 to pods with label `app: frontend` ONLY from:
+  - Pods in the same namespace with label `app: backend`
+  - Any pod in the `monitoring` namespace
+- Blocks all other ingress traffic to the frontend pods
+- Does not affect egress traffic
+  The policy should be named `frontend-access` and should apply to the `web-apps` namespace.
+
+Verify that the policy correctly allows and blocks traffic as specified.
+
+---
+
+- solution:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-access
+  namespace: web-apps
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+
+  policyTypes:
+    - Ingress
+
+  ingress:
+    - from:
+        # same namespace: only backend pods
+        - podSelector:
+            matchLabels:
+              app: backend
+
+        # any pod in monitoring namespace
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: monitoring
+
+      ports:
+        - protocol: TCP
+          port: 80
+```
+
+---
+
+## task: NP - port
+
+Task
+The `external-services` namespace contains applications that need controlled access to external APIs and services.
+
+Create a NetworkPolicy that:
+
+- Allows egress traffic ONLY to specific external services:
+  - DNS servers (UDP port 53)
+  - HTTPS services (TCP port 443)
+  - A specific API endpoint at `api.company.com` (TCP port `8443`) - assume this resolves to IP range `192.168.100.0/24`
+- Blocks all other egress traffic from the namespace
+- Applies to all pods in the `external-services` namespace
+
+The policy should be named `restrict-egress` and should use a CIDR block for the API endpoint.
+
+---
+
+- solution:
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-egress
+  namespace: external-services
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+
+  egress:
+    # DNS anywhere
+    - ports:
+        - protocol: UDP
+          port: 53
+
+    # HTTPS anywhere
+    - ports:
+        - protocol: TCP
+          port: 443
+
+    # api.company.com -> 192.168.100.0/24:8443
+    - to:
+        - ipBlock:
+            cidr: 192.168.100.0/24
+      ports:
+        - protocol: TCP
+          port: 8443
+```
+
+---
+
+## NP - ipblock
+
+Task
+
+Create a NetworkPolicy in the `egress-control` namespace that restricts egress traffic to only allow:
+
+- DNS queries (UDP/TCP port 53) to any destination
+- HTTPS traffic (TCP port 443) to public IP ranges (excluding private IPs)
+- Block all other egress traffic
+
+NetworkPolicy Requirements:
+
+- Name: `restrict-egress`
+- Namespace: `egress-control`
+- Apply to all pods in the namespace (empty podSelector)
+- Use CIDR `0.0.0.0/0` with exceptions for private IP ranges:
+  - `10.0.0.0/8`
+  - `172.16.0.0/12`
+  - `192.168.0.0/16`
+
+The policy should apply to all pods in the namespace. Use ipBlock with except to exclude private IPs.
+
+---
+
+- solution
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-egress
+  namespace: egress-control
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # Allow DNS to any destination
+    - ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+
+    # Allow HTTPS only to public IPs
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+```
+
+---
+
+## NP - port,{}
+
+Task
+Secure the Kubernetes Dashboard deployment by implementing network segmentation:
+
+Create a NetworkPolicy named `restrict-dashboard-access` in the `kubernetes-dashboard` namespace with the following specifications:
+
+- Apply to all pods with label `k8s-app: kubernetes-dashboard`
+- Only allow ingress traffic from within the same namespace (`kubernetes-dashboard`)
+- Only allow TCP traffic on port `8443`
+- Block all other ingress traffic
+
+This will restrict dashboard access to only pods within the dashboard namespace.
+
+Focus on network-level security. The dashboard is already deployed and running.
+
+---
+
+- solution
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: restrict-dashboard-access
+  namespace: kubernetes-dashboard
+spec:
+  podSelector:
+    matchLabels:
+      k8s-app: kubernetes-dashboard
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}
+      ports:
+        - protocol: TCP
+          port: 8443
+```
+
+---

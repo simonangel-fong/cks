@@ -10,6 +10,12 @@
   - [Docker: config(killer A)](#docker-configkiller-a)
   - [Sandbox (killer A)](#sandbox-killer-a)
   - [\*\*Secure Docker: group](#secure-docker-group)
+  - [Secure: docker](#secure-docker)
+  - [Task: Dockfile](#task-dockfile)
+  - [Task: Docker daemon](#task-docker-daemon)
+  - [Daemon - dockerd](#daemon---dockerd)
+  - [RunTimeClass](#runtimeclass)
+  - [Docker - Group](#docker---group)
 
 ---
 
@@ -355,3 +361,212 @@ sudo systemctl restart docker
 sudo systemctl status docker
 
 ```
+
+---
+
+## Secure: docker
+
+- task:
+  - remove user `developer` from `docker` group
+  - secure `/var/run/docker.sock` is owned by root group
+  - ensure docker is not listening on any TCP port
+
+---
+
+- solution
+
+```sh
+# 1
+gpasswd -d developer docker
+# 2
+chown root:root /var/run/docker.sock
+# check systemd
+# dockerd --group=root
+
+# 3
+vi /etc/docker/daemon.json
+# remove tcp://0.0.0.0:2375
+
+# check systemd
+# remove: -H tcp://0.0.0.0:2375
+
+# confirm
+ss -tnlp | grep 2357
+```
+
+---
+
+## Task: Dockfile
+
+There is a Dockerfile named unsecure.Dockerfile located at `/opt/course/image/`.
+
+DevSecOps has asked you to improve this image by:
+
+Changing the base image to `alpine:3.12`
+Not installing `curl`
+Updating nginx to use the version constraint `>=1.18.0`
+Running the main process as user `myuser`
+Do not add any new lines to the Dockerfile - only modify the existing ones.
+
+---
+
+- Solution
+- skip
+
+---
+
+## Task: Docker daemon
+
+Task
+You are setting up a new Kubernetes cluster and need to secure Docker as part of the cluster setup.
+
+Ensure that docker runs under the "root" group and that no external TCP connections are allowed to the docker daemon.
+
+Ensure the configuration is persistent across restarts.
+
+---
+
+- **Solution**
+
+Change the ownership of the docker file:
+
+```sh
+sudo chown root:root /var/run/docker.sock
+```
+
+Then add --group=root to the ExecStart of docker systemd file:
+
+```sh
+sudo systemctl edit docker
+```
+
+```conf
+[Service]
+ExecStart=
+ExecStart=/usr/bin/dockerd --group=root
+```
+
+Then reload the docker daemon:
+
+```sh
+sudo systemctl daemon-reexec
+sudo systemctl daemon-reload
+sudo systemctl restart docker
+```
+
+To remove the TCP external connections, modify the /etc/docker/daemon.json to remove the tcp section so that the file looks like this:
+
+```json
+{
+  "hosts": ["unix:///var/run/docker.sock"]
+}
+```
+
+Then restart docker again.
+
+---
+
+## Daemon - dockerd
+
+Task
+You are setting up a new Kubernetes cluster and need to secure Docker as part of the cluster setup.
+
+Ensure that docker runs under the "root" group and that no external TCP connections are allowed to the docker daemon.
+
+Ensure the configuration is persistent across restarts.
+
+Backup of the original Docker configuration is available at /etc/docker/daemon.json.backup. Docker service must remain running for container operations in subsequent questions.
+
+---
+
+- solution
+
+```sh
+vi /etc/docker/daemon.json
+# remove host: -H tcp://0.0.0.0:2375
+
+# edit systemctl config add: --group=root
+```
+
+---
+
+## RunTimeClass
+
+Create a RuntimeClass and configure a deployment to use it for workload isolation.
+
+Tasks:
+
+Create a `RuntimeClass` named `secured` using the `runc` handler
+Create a deployment named `isolated-app` in the `runtime-demo` namespace that uses this RuntimeClass
+RuntimeClass Requirements:
+
+- Name: secured
+- Handler: runc
+
+Deployment Requirements:
+
+- Deployment name: isolated-app
+- Namespace: runtime-demo
+- Replicas: 1
+- Container name: app
+- Image: nginx:alpine
+- Container port: 80
+- RuntimeClass: secured
+
+Create both resources with the exact specifications above.
+
+---
+
+- solution
+
+```yaml
+apiVersion: node.k8s.io/v1
+kind: RuntimeClass
+metadata:
+  name: secured
+handler: runc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: isolated-app
+  namespace: runtime-demo
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: isolated-app
+  template:
+    metadata:
+      labels:
+        app: isolated-app
+    spec:
+      runtimeClassName: secured
+      containers:
+        - name: app
+          image: nginx:alpine
+          ports:
+            - containerPort: 80
+```
+
+---
+
+## Docker - Group
+
+Task
+Remove a user from the Docker group to enhance security. The user 'develop' should no longer have Docker privileges.
+
+Use the gpasswd command to remove the user from the docker group
+
+---
+
+- solution
+
+```sh
+getent group docker
+
+sudo gpasswd -d develop docker
+groups develop
+```
+
+---

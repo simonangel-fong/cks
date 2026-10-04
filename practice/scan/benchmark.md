@@ -5,6 +5,9 @@
 - [Practices - Benchmark](#practices---benchmark)
   - [CIS Benchmark fix controlplane](#cis-benchmark-fix-controlplane)
   - [kube-bench: cluster(killer A)](#kube-bench-clusterkiller-a)
+  - [Task: kube-bench](#task-kube-bench)
+  - [Task: kube-bench](#task-kube-bench-1)
+  - [kube-bench - etcd data file](#kube-bench---etcd-data-file)
 
 ---
 
@@ -180,4 +183,129 @@ systemctl status kubelet
 kube-bench run --targets node > cis1
 vi cis1
 # no found preivous warning
+```
+
+---
+
+## Task: kube-bench
+
+We have identified a few issues with our kubernetes setup and need your help in fixing them.
+
+Fix the following issues on kubelet:
+
+- Kubelet service file permission issues
+- Kubelet config.yaml permission issues
+
+Fix the following issues on etcd:
+
+- Incorrect ownership of the etcd directory
+
+Fix the following issues on the controlplane node:
+
+- Incorrect value of the profiling argument for:
+  - kube-controller-manager
+  - kube-scheduler
+
+Kube-bench is installed, and its config files are available under /opt/kube-bench. Use the cis-1.10 benchmark with the current Kubernetes version.
+
+Note: Only fix issues that have the status FAIL, except issue number 1.2.5. Also, ignore the issues with policies.
+
+---
+
+- **Solution**
+
+```sh
+sudo kube-bench run --benchmark cis-1.10 \
+  --config-dir /opt/kube-bench --config /opt/kube-bench/config.yaml \
+  --targets master,node
+```
+
+Kubelet service file: Find the path reported by kube-bench; check it before editing.
+
+```sh
+sudo chmod 644 /path/to/kubelet.service
+```
+
+Kubelet configuration: CIS 1.10 requires permissions 600 or more restrictive
+
+```sh
+sudo chmod 600 /var/lib/kubelet/config.yaml
+```
+
+etcd data directory
+
+```sh
+sudo chown -R etcd:etcd /var/lib/etcd
+```
+
+Profiling
+
+```sh
+sudo vi /etc/kubernetes/manifests/kube-controller-manager.yaml
+# - --profiling=false
+sudo vi /etc/kubernetes/manifests/kube-scheduler.yaml
+# - --profiling=false
+```
+
+---
+
+## Task: kube-bench
+
+Task
+Run a CIS Benchmark scan using kube-bench and fix the etcd data directory permission issue.
+
+Tasks:
+
+- Run kube-bench to scan the master components
+- Identify the etcd data directory permission violations
+
+Requirements:
+
+- Use kube-bench with appropriate targets to find the issue
+- Restrict `etcd` directory permissions to the CIS recommended level
+- Apply the fixes recursively to all files and subdirectories
+- Verify that the fix resolves the violation
+
+kube-bench is pre-installed. Focus on finding and fixing the etcd data directory permission issue specifically. Note: You may need to apply permissions recursively to ALL possible etcd directories and their contents.
+
+---
+
+```sh
+kube-bench run --targets master
+
+chmod -R 700 /var/lib/etcd
+```
+
+---
+
+## kube-bench - etcd data file
+
+Task
+Please exit from `cluster2-controlplane` and ensure that you are in cluster1-controlplane for the subsequent question.
+
+Run a CIS Benchmark scan using `kube-bench` and fix the `etcd` data directory permission issue.
+
+Tasks:
+
+Run kube-bench to scan the master components
+Identify the etcd data directory permission violations
+Requirements:
+
+- Use kube-bench with appropriate targets to find the issue
+- Restrict etcd directory permissions to the CIS recommended level
+- Verify that the fix resolves the violation
+
+kube-bench is pre-installed. Focus on finding and fixing the etcd data directory permission issue specifically.
+
+---
+
+- solution:
+
+```sh
+kube-bench run --targets master
+
+chmod 700 /var/lib/etcd
+
+sudo useradd -r -s /bin/false etcd 2>/dev/null
+chown etcd:etcd /var/lib/etcd
 ```

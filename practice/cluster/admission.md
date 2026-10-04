@@ -10,6 +10,15 @@
   - [Admission: PSS](#admission-pss)
   - [Admission: ImagePolicyWebhook(killer A)](#admission-imagepolicywebhookkiller-a)
   - [Admission: PSS(killer B)](#admission-psskiller-b)
+  - [Task: admission - imagepolicy](#task-admission---imagepolicy)
+  - [Task: PSS - Security context](#task-pss---security-context)
+  - [Task: PSS - RS](#task-pss---rs)
+  - [Task: admission - imagepolicy](#task-admission---imagepolicy-1)
+  - [Task: PSS - label](#task-pss---label)
+  - [PSS](#pss)
+  - [Admission - PSS](#admission---pss)
+  - [PSS - label](#pss---label)
+  - [PSS - security context](#pss---security-context)
 
 ---
 
@@ -458,6 +467,388 @@ k -n team-rose describe rs container-host-hacker-dbf989777
   # Warning  FailedCreate  78s                replicaset-controller  Error creating: pods "container-host-hacker-dbf989777-x5v5t" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
   # Warning  FailedCreate  39s (x7 over 77s)  replicaset-controller  (combined from similar events): Error creating: pods "container-host-hacker-dbf989777-64q6p" is forbidden: violates PodSecurity "baseline:latest": hostPath volumes (volume "containerdata")
 
+```
+
+---
+
+## Task: admission - imagepolicy
+
+Task
+We need to ensure that when pods are created in this cluster, they cannot use the latest image tag, irrespective of the repository being used.
+
+To achieve this, a simple `Admission Webhook Server` has been developed and deployed. A service called `image-bouncer-webhook` is deployed in the cluster. This Webhook server ensures that the developers of the team cannot use the latest image tag. Use the following specs to integrate it with the cluster using an `ImagePolicyWebhook`:
+
+- Create a new admission configuration file at `/etc/admission-controllers/admission-configuration.yaml`
+- The kubeconfig file with the credentials to connect to the webhook server is located at `/root/CKS/ImagePolicy/admission-kubeconfig.yaml`.
+  - Note: The `/root/CKS/ImagePolicy/` directory is already mounted on the kube-apiserver at path `/etc/admission-controllers`, so reference that path in reference the admission configuration.
+- Ensure that if the latest tag is used, the request must be rejected at all times.
+- Enable the Admission Controller.
+
+- Finally, delete the existing pod in the magnum namespace that violates the policy and recreate it, ensuring the same image but using tag `1.27`.
+
+NOTE: If the kube-apiserver becomes unresponsive, this can affect the validation of this exam. In such a case, restore the kube-apiserver using the backup file created at: `/root/backup/kube-apiserver.yaml`. Wait for the API to be available again and proceed.
+
+---
+
+- **solution**
+
+- tricky:
+  - volume has been mounted. `/root/CKS/ImagePolicy/` -> `/etc/admission-controllers`
+    - config file should be in `/root/CKS/ImagePolicy/`
+
+```sh
+vi /root/CKS/ImagePolicy/admission-configuration.yaml
+
+# apiVersion: apiserver.config.k8s.io/v1
+# kind: AdmissionConfiguration
+# plugins:
+# - name: ImagePolicyWebhook
+#   configuration:
+#     imagePolicy:
+#       kubeConfigFile: /etc/admission-controllers/admission-kubeconfig.yaml
+#       allowTTL: 0
+#       denyTTL: 0
+#       retryBackoff: 500
+#       defaultAllow: false
+
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --admission-control-config-file=/etc/admission-controllers/admission-configuration.yaml
+# - --enable-admission-plugins=ImagePolicyWebhook
+
+# change pod image
+```
+
+---
+
+## Task: PSS - Security context
+
+A deployment named `web-server` is running in the `restricted` namespace.
+
+Identify the reason why the deployment is not in a running state; fix the issue so that it can be in a running state.
+
+Do not change the namespace labels or container image.
+
+---
+
+## Task: PSS - RS
+
+Task
+There is a deployment named hacker in the namespace team-red, which mounts /run/containerd as a hostPath volume on the Node where it's running.
+This means that the Pod can access various data about other containers running on the same Node.
+
+To prevent this, configure the team-red namespace to enforce the baseline Pod Security Standard. Once completed, delete the Pod from the
+deployment mentioned above.
+
+Check the ReplicaSet events and write the event lines containing the reason why the Pod isn't recreated into /opt/course/logs.txt.
+
+Note: You may see multiple identical event lines with the same error. Paste only one of them in the logs.txt file - preferably the last one.
+
+---
+
+- Solution
+- skip
+
+---
+
+## Task: admission - imagepolicy
+
+We want to deploy an ImagePolicyWebhook admission controller to secure the deployments in our cluster.
+
+Fix the error in `/etc/kubernetes/pki/admission_configuration.yaml` which will be used by ImagePolicyWebhook
+
+Ensure that the policy is set to implicit deny. If the webhook service is not reachable, the configuration should automatically reject all images.
+
+Enable the plugin on the API server.
+
+The kubeconfig file for the existing imagepolicywebhook resources is located at `/etc/kubernetes/pki/admission_kube_config.yaml`
+
+---
+
+- solution
+
+```sh
+vi /etc/kubernetes/pki/admission_configuration.yaml
+# apiVersion: apiserver.config.k8s.io/v1
+# kind: AdmissionConfiguration
+# plugins:
+# - name: ImagePolicyWebhook
+#   configuration:
+#     imagePolicy:
+#       kubeConfigFile: /etc/kubernetes/pki/admission_kube_config.yaml
+#       allowTTL: 50
+#       denyTTL: 50
+#       retryBackoff: 500
+#       defaultAllow: false
+
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --admission-control-config-file=/etc/kubernetes/pki/admission_configuration.yaml
+# - --enable-admission-plugins=NodeRestriction,ImagePolicyWebhook
+```
+
+---
+
+## Task: PSS - label
+
+Task
+The `financial-apps` namespace contains sensitive financial applications that require strict security controls.
+
+Configure Pod Security Admission to:
+
+- Enforce the restricted policy level on the `financial-apps` namespace
+- Use the latest version of the Pod Security Standards
+- Add a warning level for the baseline policy to alert on less strict pods
+- Label the namespace appropriately for the PSA controller
+
+Verify that the configuration is working by attempting to create a privileged pod and observing the rejection.
+
+---
+
+- solution
+
+```sh
+k label ns financial-apps \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/warn=baseline \
+  pod-security.kubernetes.io/warn-version=latest \
+  --overwrite
+
+k get ns financial-apps --show-labels
+```
+
+---
+
+## PSS
+
+Task
+A deployment named `api-server` is running in the namespace `production`. The deployment pods are failing to start.
+
+Identify the issue causing the pods to fail, and then fix the deployment.
+
+---
+
+- solution
+
+Step-by-Step Troubleshooting
+
+- Step 1: Check Current Deployment Status
+
+```sh
+kubectl get deployment api-server -n production
+kubectl get pods -n production -l app=api-server
+```
+
+Observation: No pods have been created, and the deployment shows 0/2 replicas.
+
+- Step 2: Check Deployment Events and Conditions
+
+```sh
+kubectl describe deployment api-server -n production
+```
+
+Critical Finding: Deployment events indicate Pod Security violations that are preventing pod creation.
+
+- Step 3: Analyze the Exact Security Violations
+  To identify the specific violations, review the deployment YAML:
+
+```sh
+kubectl get deployment api-server -n production -o yaml
+```
+
+Violations Identified:
+
+- privileged: true
+- runAsNonRoot: false
+- runAsUser: 0 and runAsGroup: 0 (root user)
+- Capabilities added: NET_ADMIN, SYS_TIME
+- Missing allowPrivilegeEscalation: false
+- Missing seccompProfile
+
+- Step 4: Delete and Recreate the Deployment with Correct Settings
+  The easiest approach is to delete the broken deployment and recreate it with the correct security context:
+
+```sh
+# Delete the broken deployment
+kubectl delete deployment api-server -n production
+
+# Create a new deployment with correct security settings
+kubectl apply -f - <<EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-server
+  namespace: production
+  labels:
+    app: api-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-server
+  template:
+    metadata:
+      labels:
+        app: api-server
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 101
+        runAsGroup: 101
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+      - name: api
+        image: nginxinc/nginx-unprivileged:1.25.3-alpine
+        ports:
+        - containerPort: 8080
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 101
+          privileged: false
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop:
+            - ALL
+EOF
+```
+
+---
+
+## Admission - PSS
+
+Task
+We want to deploy a `PodSecurity admission` controller to enforce security standards across the cluster.
+
+Tasks:
+
+Fix the error in `/etc/kubernetes/pki/podsecurity_configuration.yaml` which will be used by the PodSecurity admission controller:
+
+- Ensure the `restricted` level is **enforced** across all namespaces by default, with `baseline` used for **audit** and **warn** modes, and pin all three modes to the latest policy **version**.
+
+Enable the plugin on the API server by:
+
+- Adding `PodSecurity` to the `--enable-admission-plugins` flag (required when using a custom config file)
+- Setting `--admission-control-config-file` to point to the configuration file
+
+The PodSecurity admission controller should reject any pods that don't meet the restricted policy standards.
+
+A copy of the kube-apiserver.yaml is available in /tmp/kube-apiserver-backup.yaml so you can revert if the configuration goes wrong. Ensure that the kube-apiserver is working correctly, as it will be required for grading the exam.
+
+---
+
+- solution
+
+```yaml
+# /etc/kubernetes/pki/podsecurity_configuration.yaml
+apiVersion: apiserver.config.k8s.io/v1
+kind: AdmissionConfiguration
+plugins:
+  - name: PodSecurity
+    configuration:
+      apiVersion: pod-security.admission.config.k8s.io/v1
+      kind: PodSecurityConfiguration
+      defaults:
+        enforce: "restricted"
+        enforce-version: "latest"
+        audit: "baseline"
+        audit-version: "latest"
+        warn: "baseline"
+        warn-version: "latest"
+      exemptions:
+        usernames: []
+        runtimeClasses: []
+        namespaces: []
+```
+
+```sh
+vi /etc/kubernetes/manifests/kube-apiserver.yaml
+# - --admission-control-config-file=/etc/kubernetes/pki/podsecurity_configuration.yaml
+# - --enable-admission-plugins=NodeRestriction,PodSecurity
+
+# debug
+crictl ps -a | grep kube-apiserver
+journalctl -u kubelet -n 50 --no-pager
+```
+
+---
+
+## PSS - label
+
+Task
+Configure Pod Security Standards for the `scc-demo` namespace so that non-compliant pods are rejected.
+
+Apply `Pod Security Standards` labels to the namespace with:
+
+- Enforce level: `restricted`
+- Enforce version: `latest`
+- Audit: `restricted`
+- Warn: `restricted`
+
+Once applied, the restricted profile automatically enforces most of the key controls for you, including:
+
+- no privilege escalation
+- runAsNonRoot
+- no host namespaces
+- a seccomp profile
+- all capabilities dropped
+
+---
+
+```sh
+kubectl label ns scc-demo \
+  pod-security.kubernetes.io/enforce=restricted \
+  pod-security.kubernetes.io/enforce-version=latest \
+  pod-security.kubernetes.io/audit=restricted \
+  pod-security.kubernetes.io/audit-version=latest \
+  pod-security.kubernetes.io/warn=restricted \
+  pod-security.kubernetes.io/warn-version=latest \
+  --overwrite
+```
+
+---
+
+## PSS - security context
+
+Task
+Migrate the existing deployment `legacy-app` in the `pss-migration` namespace to comply with the `Pod Security Standards` restricted policy level.
+
+Current Issues:
+The deployment has insecure settings that violate the restricted policy:
+
+- privileged: true (must be false)
+- runAsUser: 0 (must be non-root)
+
+Required Changes:
+
+- Set `privileged: false`
+- Set `runAsNonRoot: true` at container level
+- Set `allowPrivilegeEscalation: false`
+- Drop all `capabilities (capabilities.drop: ["ALL"])`
+- Use `runAsUser: 101 (nginx user)`
+  Ensure the deployment maintains functionality on port 8080 after migration.
+
+The deployment uses the nginx-unprivileged image which runs as UID 101 by default.
+
+---
+
+- solution
+
+```yaml
+containers:
+  - name: <existing-container-name>
+    image: <existing-nginx-unprivileged-image>
+    ports:
+      - containerPort: 8080
+    securityContext:
+      privileged: false
+      runAsNonRoot: true
+      runAsUser: 101
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+      seccompProfile:
+        type: RuntimeDefault
 ```
 
 ---

@@ -127,13 +127,6 @@
 
 ---
 
-kodekloud
-
-- [kodekloud cks lab](./kk/lab.md)
-- [kodekloud cks mock](./kk/mock.md)
-- [kodekloud cks mock2](./kk/mock2.md)
-- trick
-
 - modify existing resource steps
   - persistent:
     - k get name -o yaml > number.yaml
@@ -145,10 +138,6 @@ kodekloud
   - apply
   - confirm
     - k get name -o yaml | grep field_value
-
-- youtube question
-  - [ ] https://www.youtube.com/watch?v=Jd_j2wruz6E&list=PLpbwBK0ptssx38770vYNwZEuCeGNw54CH
-  - [ ] https://www.youtube.com/watch?v=XQPiev_u30k&list=PLyKswBedEWujChLpKK6zFj0S4MOUaxqR3&index=7
 
 ---
 

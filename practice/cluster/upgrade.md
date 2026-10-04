@@ -7,6 +7,7 @@
   - [Upgrade controlplane](#upgrade-controlplane)
   - [Upgrade worker noded](#upgrade-worker-noded)
   - [Upgrade(killer B)](#upgradekiller-b)
+  - [Upgrade - worker node](#upgrade---worker-node)
 
 ---
 
@@ -187,3 +188,14 @@ sudo systemctl restart kubelet
 
 kubectl uncordon node1
 ```
+
+---
+
+## Upgrade - worker node
+
+Task
+The administrator has partially upgraded cluster1.
+
+Complete the upgrade process by updating the worker node to match the same version as the control plane node.
+
+---

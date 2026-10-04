@@ -7,6 +7,7 @@
   - [Cilium NP](#cilium-np)
   - [Cilium(killer A)](#ciliumkiller-a)
   - [CNP(kill B)](#cnpkill-b)
+  - [Task: Cilium](#task-cilium)
 
 ---
 
@@ -300,3 +301,36 @@ spec:
       authentication:
         mode: "required" # Enable Mutual Authentication
 ```
+
+---
+
+## Task: Cilium
+
+There is an existing CiliumNetworkPolicy
+`default-allow` in the namespace `team-azure`, which allows all traffic.
+
+In the namespace `team-azure`, create a CiliumNetworkPolicy as follows:
+
+Create a Layer 3 policy named `p1` that denies outgoing traffic from Pods with the label `role=messenger` to Pods with the label `role=database`.
+
+---
+
+- **Solution**
+
+```yaml
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: p1
+  namespace: team-azure
+spec:
+  endpointSelector:
+    matchLabels:
+      role: messenger
+  egressDeny:
+    - toEndpoints:
+        - matchLabels:
+            role: database
+```
+
+---

@@ -9,6 +9,7 @@
   - [Dockerfile](#dockerfile)
   - [Dockerfile: manage secret](#dockerfile-manage-secret)
   - [Dockfile(kill B)](#dockfilekill-b)
+  - [Task: Dockerfile](#task-dockerfile)
 
 ---
 
@@ -275,3 +276,49 @@ k -n team-maple logs -f -l id=image-verify
 k -n team-maple exec image-verify-55fbcd4c9b-x2flc -- curl
 k -n team-maple exec image-verify-6cd88b645f-8d5cn -- nginx -v
 ```
+
+---
+
+## Task: Dockerfile
+
+Task
+A Dockerfile at `/opt/course/image/api-server.Dockerfile` is currently using a full Ubuntu base image with unnecessary packages that increase the attack surface.
+
+Convert the Dockerfile to use a minimal distroless base image by:
+
+- Changing the base image from `ubuntu:20.04` to `gcr.io/distroless/base`
+- Removing package managers (apt-get, dpkg) and shell (bash)
+- Copying only the necessary application binary
+- Setting the non-root user nonroot (UID: 65532)
+- Using the exec form for ENTRYPOINT
+
+Do not add any new lines - only modify existing ones. The application binary is a Go binary that listens on port 8080.
+
+---
+
+setup
+
+Original Dockerfile:
+
+```sh
+FROM ubuntu:20.04
+RUN apt-get update && apt-get install -y curl wget python3 python3-pip
+RUN useradd -m appuser
+COPY ./app-server /app/server
+RUN chmod +x /app/server
+USER root
+ENTRYPOINT /app/server
+```
+
+---
+
+Secure Dockerfile:
+
+```sh
+FROM gcr.io/distroless/base
+COPY --chmod=0755 ./app-server /app/server
+USER nonroot:nonroot
+ENTRYPOINT ["/app/server"]
+```
+
+---

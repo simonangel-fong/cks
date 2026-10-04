@@ -14,6 +14,8 @@
   - [apiserver: flag(killer A)](#apiserver-flagkiller-a)
   - [binary(killer B)](#binarykiller-b)
   - [API Server(killer B)](#api-serverkiller-b)
+  - [Checksum](#checksum)
+  - [cluster config - controller](#cluster-config---controller)
 
 ---
 
@@ -245,3 +247,119 @@ vi /course/15/curl.log
 # confirm
 cat /course/15/curl.log
 ```
+
+---
+
+## Checksum
+
+Task
+Please exit from cluster2-controlplane and ensure that you are in `cluster1-controlplane` for the subsequent question.
+
+Three binary packages have been placed in `/root/binary-verification/`, with only one being authentic.
+
+Tasks:
+
+Review the official checksum in `official-checksum.sha256`.
+Verify each binary package (`v1.tar`, `v2.tar`, `v3.tar`) against the official checksum.
+Determine which binary package is authentic.
+Complete the verification report at `/root/binary-verification-report.txt` with the following details:
+
+- The official checksum value
+- Verification results for each binary (AUTHENTIC or TAMPERED, along with the actual checksum)
+- Identification of the authentic binary
+- Binary packages to verify:
+  - v1.tar
+  - v2.tar
+  - v3.tar
+
+---
+
+- **Solution**
+
+Binary Verification Solution
+
+- Step 1: Check the Official Checksum
+
+```sh
+cd /root/binary-verification
+cat official-checksum.sha256
+```
+
+- Step 2: Calculate Checksums for Each Binary
+
+```sh
+# Calculate checksum for v1.tar
+sha256sum v1.tar
+
+# Calculate checksum for v2.tar
+sha256sum v2.tar
+
+# Calculate checksum for v3.tar
+sha256sum v3.tar
+```
+
+- Step 3: Compare and Complete the Report
+
+```sh
+# Edit the report template:
+vi /root/binary-verification-report.txt
+
+# Fill in the following details:
+# Example Completed Report:
+# Kubernetes Binary Verification Report
+# ====================================
+# Fri Oct 3 07:26:17 AM EDT 2025
+
+# OFFICIAL CHECKSUM: 8739dd0797f162c7d8b87c4d3213d074f91d9cbf0bdf4cba73afa0b5becb075c correct-binary.tar
+
+# VERIFICATION RESULTS:
+# v1.tar: 9a0b036a9b0885a7521bc63c65a7baf2ce63c52ca1c86c56ff101e07762be334
+# v2.tar: 8739dd0797f162c7d8b87c4d3213d074f91d9cbf0bdf4cba73afa0b5becb075c
+# v3.tar: 9431b841b7d5201ea6687ebbba02f78ed3854613bd307fca32d871c0004f7469
+
+# AUTHENTIC BINARY: v2.tar
+
+```
+
+---
+
+## cluster config - controller
+
+Task
+SSH into the cluster2-controlplane to address the following tasks:
+
+Configure the kube-controller-manager to use the `--use-service-account-credentials` flag.
+Set the `--terminated-pod-gc-threshold` to `50`.
+The admin kubeconfig file for this cluster is located at: `/root/controller-config/admin.conf`
+
+Additionally, please utilize this kubeconfig file to delete the cluster role named '`legacy-cluster-role`'.
+
+Confirm `kube-controller-manager` returns to Running before continuing
+
+The backup of the original kube-controller-manager configuration is located at /tmp/kube-controller-manager-bak.yaml.
+
+---
+
+- solution:
+
+```sh
+ssh cluster2-controlplane
+
+vi /etc/kubernetes/manifests/kube-controller-manager.yaml
+# containers:
+# - command:
+#   - kube-controller-manager
+#   - --use-service-account-credentials=true
+#   - --terminated-pod-gc-threshold=50
+
+# confirm restart
+crictl ps -a | grep controller-manager
+journalctl -u kubelet -n 50 --no-pager
+
+# remove clusterrole
+kubectl --kubeconfig=/root/controller-config/admin.conf delete clusterrole legacy-cluster-role
+
+kubectl --kubeconfig=/root/controller-config/admin.conf get po -n kube-system | grep controller-manager
+```
+
+---

@@ -6,6 +6,9 @@
   - [SA: apply to pod](#sa-apply-to-pod)
   - [SA: disable token](#sa-disable-token)
   - [SA: mount token expire(killer A)](#sa-mount-token-expirekiller-a)
+  - [Task: SA - projected volume](#task-sa---projected-volume)
+  - [Task: secret token](#task-secret-token)
+  - [seccomp](#seccomp)
 
 ---
 
@@ -242,3 +245,113 @@ kubectl exec -n team-coral deploy/stream-multiplex -- ls -l /var/run/secrets/cus
 ```
 
 > ref: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/#manually-create-a-long-lived-api-token-for-a-serviceaccount
+
+---
+
+## Task: SA - projected volume
+
+Create a service account named `bot-sa` in the namespace `automated`. Make sure that this service account does not get automatically mounted to workloads.
+
+A workload named `sweeper` is also in the `automated` namespace. Set the deployment's service account to the newly created service account, and mount the service account token as a projected volume. Do not change any other fields in the deployment.
+
+---
+
+- **Solution**
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: bot-sa
+  namespace: automated
+automountServiceAccountToken: false
+```
+
+```yaml
+# pod spec
+serviceAccountName: bot-sa
+volumes:
+  - name: bot-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            path: token
+# containers
+volumeMounts:
+  - name: bot-token
+    mountPath: /var/run/secrets/bot
+    readOnly: true
+```
+
+> remember: `readOnly: true`
+
+---
+
+## Task: secret token
+
+A pod named `apps-cluster-dash` has been created in the `gamma` namespace using a service account called `cluster-view`. This service account has been granted additional permissions as compared to the default service account and can view resources cluster-wide on this Kubernetes cluster. While these permissions are important for the application in this pod to work, the secret token is still mounted on this pod.
+
+Secure the pod in such a way that the secret token is no longer mounted on this pod. You may delete and recreate the pod.
+
+---
+
+- Solution
+
+```yaml
+# remove sa token from projected token
+volumes:
+  - name: vault-token
+    projected:
+      sources:
+        - serviceAccountToken:
+            path: vault-token
+```
+
+---
+
+## seccomp
+
+Task
+A security audit identified that containers in the `secure-runtime` namespace could be vulnerable to process debugging attacks. There is already a pod named `secure-app` running in this namespace.
+
+Your tasks:
+Create a custom seccomp profile at `/var/lib/kubelet/seccomp/profiles/block-debug.json` with:
+
+- defaultAction: `SCMP_ACT_ALLOW` (allow all syscalls by default)
+- Block specific syscalls: `ptrace` and `process_vm_readv`
+- Use `SCMP_ACT_ERRNO` action for the blocked syscalls
+
+Recreate the secure-app pod to use this custom seccomp profile:
+
+- seccompProfile type: `Localhost`
+- localhostProfile: `profiles/block-debug.json`
+
+Ensure the pod remains functional and can still serve nginx content
+
+Note: Since you cannot modify a running pod's security context, you must delete and recreate the pod.
+
+---
+
+- solution
+
+```json
+{
+  "defaultAction": "SCMP_ACT_ALLOW",
+  "syscalls": [
+    {
+      "names": ["ptrace", "process_vm_readv"],
+      "action": "SCMP_ACT_ERRNO"
+    }
+  ]
+}
+```
+
+```yaml
+spec:
+  securityContext:
+    seccompProfile:
+      type: Localhost
+      localhostProfile: profiles/block-debug.json
+```
+
+---

@@ -9,6 +9,10 @@
   - [falco(killer B)](#falcokiller-b)
   - [falco: syscall(killer B)](#falco-syscallkiller-b)
   - [falco: pod access /dev/mem](#falco-pod-access-devmem)
+  - [Task: falco - config,custom rule](#task-falco---configcustom-rule)
+  - [Task: falco - custom rule](#task-falco---custom-rule)
+  - [Task: falco - find pod](#task-falco---find-pod)
+  - [falco - /etc/shadow](#falco---etcshadow)
 
 ---
 
@@ -19,10 +23,13 @@
   - If you encounter issues with **Falco log generation**, verify that `syslog` is enabled with **debug priority**.
   - Alternatively, run `Falco` directly from the **command line**, bypassing `systemd`.
 
-| CMD                      | DESC                              |
-| ------------------------ | --------------------------------- |
-| `falco -U`               | unbuffered and immediately output |
-| `falco -U \| grep httpd` | keep lines containing “httpd”     |
+| CMD                      | DESC                                                 |
+| ------------------------ | ---------------------------------------------------- |
+| `falco -U`               | unbuffered and immediately output                    |
+| `falco -U \| grep httpd` | keep lines containing “httpd”                        |
+| `falco -M <num_seconds>` | Stop Falco execution after <num_seconds> are passed. |
+| `falco -r <rules_file>`  | Specify rules file                                   |
+| `falco -V <rules_file>`  | validate rules file                                  |
 
 ---
 
@@ -321,3 +328,197 @@ journalctl _COMM=falco -f | grep DEV_MEM_ACCESS
 # Oct 01 05:29:11 node01 falco[13755]: 05:29:11.244165973: Warning DEV_MEM_ACCESS (container=test id=4bf52a278e79 file=/dev/mem) container_id=4bf52a278e79 container_name=test container_image_repository=docker.io/library/busybox container_image_tag=latest k8s_pod_name=devmem-test k8s_ns_name=default
 # Oct 01 05:29:11 node01 falco[13438]: 05:29:11.244163517: Warning DEV_MEM_ACCESS (container=test id=4bf52a278e79 file=/dev/mem) container_id=4bf52a278e79 container_name=test container_image_repository=docker.io/library/busybox container_image_tag=latest k8s_pod_name=devmem-test k8s_ns_name=default
 ```
+
+---
+
+## Task: falco - config,custom rule
+
+There is suspicious activity in the cluster involving one of the pods running the `httpd:2.4-alpine` image.
+
+Falco generates frequent alerts that start with: `File below a known binary directory opened for writing`.
+
+Identify the rule causing this alert and update it as per the below requirements:
+
+- Set the rule priority to `CRITICAL` (Note: Falco will format this as "Critical" in log output)
+- The rule output must be:
+  `File below a known binary directory opened for writing (user_id=%user.uid file_updated=%fd.name command=%proc.cmdline)`
+- Configure alerts to be logged to: `/opt/security_incidents/alerts.log`.
+  Do not update the default rules file directly. Instead, use the falco_rules.local.yaml file to override.
+
+Expected log format:
+
+```txt
+<timestamp>: Critical File below a known binary directory opened for writing (user_id=0 file_updated=/bin/sleep command=tar -xmf - -C /bin)
+```
+
+Note: After updating the alert rule, it may take up to a minute for the alerts to appear in the new log location.
+
+---
+
+- solution:
+
+Enable file_output in `/etc/falco/falco.yaml` on the controlplane node:
+
+```yaml
+file_output:
+  enabled: true # important
+  keep_alive: false
+  filename: /opt/security_incidents/alerts.log
+```
+
+Next, add the updated rule under the `/etc/falco/falco_rules.local.yaml` and hot reload the Falco service:
+
+```yaml
+- rule: Write below binary dir
+  desc: an attempt to write to any file below a set of binary directories
+  condition: >
+    bin_dir and evt.dir = < and open_write
+    and not package_mgmt_procs
+    and not exe_running_docker_save
+    and not python_running_get_pip
+    and not python_running_ms_oms
+    and not user_known_write_below_binary_dir_activities
+  output: >
+    File below a known binary directory opened for writing (user_id=%user.uid file_updated=%fd.name command=%proc.cmdline)
+  priority: CRITICAL
+  tags: [filesystem, mitre_persistence]
+```
+
+To perform hot-reload falco use '`kill -1 /SIGHUP`':
+
+```sh
+kill -1 $(cat /var/run/falco.pid)
+```
+
+Alternatively, you can also restart the falco service by running:
+
+```sh
+systemctl restart falco
+```
+
+---
+
+## Task: falco - custom rule
+
+Task
+A pod in the `sahara` namespace has generated alerts that a shell was opened inside the container.
+
+To recognize such alerts, set the priority to `ALERT` and change the format of the output so that it looks like the below:
+
+```
+ALERT timestamp of the event without nanoseconds,User ID,the container id,the container image repository
+```
+
+Make sure to update the rule such that the changes persist across Falco updates.
+
+- setup
+
+```yaml
+# /etc/falco/falco_rules.yaml
+- rule: Terminal shell in container
+  desc: A shell was used as the entrypoint/exec point into a container with an attached terminal.
+  condition: >
+    spawned_process and container
+    and shell_procs and proc.tty != 0
+    and container_entrypoint
+    and not user_expected_terminal_shell_in_container_conditions
+  output: >
+    Shell is opened ...
+  priority: ERROR
+  tags: [container, shell, mitre_execution]
+```
+
+---
+
+- **Solution**
+
+Solution
+Add the below rule to `/etc/falco/falco_rules.local.yaml` and restart the falco service to override the current rule.
+
+```yaml
+- rule: Terminal shell in container
+  desc: A shell was used as the entrypoint/exec point into a container with an attached terminal.
+  condition: >
+    spawned_process and container
+    and shell_procs and proc.tty != 0
+    and container_entrypoint
+    and not user_expected_terminal_shell_in_container_conditions
+  output: >
+    %evt.time.s,%user.uid,%container.id,%container.image.repository
+  priority: ALERT
+  tags: [container, shell, mitre_execution]
+```
+
+Use the falco documentation to use the correct sysdig filters in the output.
+
+For example, the evt.time.s filter prints the timestamp for the event without nano seconds. This is clearly described in the falco documentation here - https://falco.org/docs/rules/supported-fields/#evt-field-class
+
+---
+
+## Task: falco - find pod
+
+Task
+A pod in the `crypto-monitor` namespace is suspected of running crypto-mining software.
+Create a Falco rule that detects the execution of known mining processes like `xmrig`, `minerd`, or `cpuminer`.
+
+The rule should be added to `/etc/falco/falco_rules.local.yaml` with below specs:
+
+- Trigger when any of these processes are executed: `xmrig`, `minerd`, `cpuminer`
+- Set the priority to `CRITICAL`
+- Output the format: `MINING_ALERT: %evt.time,%container.name,%proc.name`
+- Tag the events with `[container, crypto_mining, mitre_execution]`
+
+Make sure the rule persists across Falco updates by adding it to the local rules file.
+
+---
+
+- solution
+
+```yaml
+# vim /etc/falco/falco_rules.local.yaml
+- rule: Detect Crypto Miner
+  desc: Detect known crypto mining processes
+  condition: >
+    evt.type in (execve, execveat)
+    and proc.name in (xmrig, minerd, cpuminer)
+  output: "MINING_ALERT: %evt.time,%container.name,%proc.name"
+  priority: CRITICAL
+  tags: [container, crypto_mining, mitre_execution]
+```
+
+```sh
+systemctl restart falco-modern-bpf
+
+journalctl -u falco-modern-bpf --no-pager | tail -30
+```
+
+---
+
+## falco - /etc/shadow
+
+Task
+A Pod is behaving improperly and poses a security threat to the system.
+
+Task
+
+A Pod belonging to the application analytics is abnormal. It is reading sensitive credential data by accessing the file `/etc/shadow`.
+
+First, identify the misbehaving Pod that is accessing `/etc/shadow`.
+
+Next, scale the Deployment of the misbehaving Pod down to zero replicas.
+
+Notes
+
+Do not modify anything else in that Deployment besides scaling replicas.
+Do not modify any other Deployments.
+Do not delete any Deployments.
+
+---
+
+- solution
+
+```sh
+journalctl -u falco-modern-bpf --no-pager | grep '/etc/shadow'
+```
+
+---
